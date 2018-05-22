@@ -965,7 +965,7 @@ em.est <- function(X, y, Omega.half,
     post.median <- post.median[-1]
   }
 
-  return(list("post.mean" = post.mean, "post.med" = post.median, betas = betas))
+  return(list("post.mean" = post.mean, "post.med" = post.median, betas = betas[1:i, ]))
 
 }
 
