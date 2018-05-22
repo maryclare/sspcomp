@@ -20,9 +20,10 @@ obj <- function(X, y, Omega.inv, beta, Xbeta = crossprod(t(X), beta)) {
   sum((1 - y)*Xbeta + log(1 + exp(-Xbeta))) + crossprod(beta, crossprod(Omega.inv, beta))/2
 }
 
+#' @export
 coord.desc <- function(X, y, Omega.inv, eps = 10^(-12), max.iter = 1000, print.iter = TRUE,
                        start.beta = rep(0, ncol(X))) {
-  
+
   p <- ncol(X)
   beta <- start.beta
   Xbeta <- crossprod(t(X), beta)
@@ -35,7 +36,7 @@ coord.desc <- function(X, y, Omega.inv, eps = 10^(-12), max.iter = 1000, print.i
       if (sum(range(X[, j]) == c(0, 0)) == 2) {
         beta[j] <- 0
       } else {
-        
+
         beta.old <- beta
         diff <- Inf
         while(abs(diff) > eps) {

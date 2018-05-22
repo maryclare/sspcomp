@@ -1,6 +1,7 @@
+#' @export
 coord.desc.lin <- function(X, y, Omega.inv, sig.sq, eps = 10^(-12), max.iter = 1000, print.iter = TRUE,
                            start.beta = rep(0, ncol(X))) {
-  
+
   p <- ncol(X)
   beta <- start.beta
   Xbeta <- crossprod(t(X), beta)
@@ -40,9 +41,9 @@ coord.desc.lin <- function(X, y, Omega.inv, sig.sq, eps = 10^(-12), max.iter = 1
 # y <- X%*%beta + rnorm(n)
 # Omega.inv <- (1 - 0.25)*diag(p) + 0.25*matrix(1, nrow = p, ncol = p)
 # sig.sq <- 2
-# 
+#
 # lm(y~X-1)$coef
 # coord.desc.lin(X = X, y = y, sig.sq = sig.sq, Omega.inv = 0*Omega.inv, print.iter = FALSE)$beta
-# 
+#
 # solve(crossprod(X)/sig.sq + Omega.inv)%*%crossprod(X, y)/sig.sq
 # coord.desc.lin(X = X, y = y, sig.sq = sig.sq, Omega.inv = Omega.inv, print.iter = FALSE)$beta

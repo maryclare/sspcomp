@@ -1,3 +1,12 @@
+# Snagged from tensr
+mat <- function (A, k) {
+  Ak <- t(apply(A, k, "c"))
+  if (nrow(Ak) != dim(A)[k]) {
+    Ak <- t(Ak)
+  }
+  return(Ak)
+}
+
 f.deltas <- function(deltas, c) {
   alpha <- c/2
   sin(alpha*deltas)^(alpha/(1 - alpha))*sin((1 - alpha)*deltas)/sin(deltas)^(1/(1 - alpha))
@@ -387,7 +396,7 @@ sampler <- function(X, y, Omega.half = NULL,
                     U = NULL, # Matrix of Unpenalized covariates
                     num.samp = 100,
                     print.iter = TRUE,
-                    max.iter = 1,
+                    max.iter = 1000,
                     eps = 10^(-12),
                     ridge = NULL,
                     diag.app = FALSE, kron.app = FALSE,
@@ -852,3 +861,111 @@ sampler <- function(X, y, Omega.half = NULL,
   }
   return(res.list)
 }
+
+#' @export
+em.est <- function(X, y, Omega.half,
+                   U = NULL, # Matrix of Unpenalized covariates
+                   num.samp = 100, #
+                   print.iter = TRUE,
+                   max.iter.slice = 1000,
+                   eps.slice = 10^(-12),
+                   max.iter.em = NULL,
+                   eps.em = 10^(-3),
+                   ridge = NULL,
+                   diag.app = FALSE, kron.app = FALSE,
+                   burn.in = 0, prior = "sno", c = 1, Psi.half = NULL, sig.sq = NULL, reg = "linear",
+                   est.V = FALSE, rho = 0) {
+
+  W <- t(apply(X, 1, "c"))
+
+  if (is.null(U)) {
+    UW <- cbind(rep(0, nrow(W)), W)
+  } else {
+    UW <- cbind(U, W)
+  }
+
+  penC <- matrix(0, nrow = ncol(UW), ncol = ncol(UW))
+
+  Omega.inv <- lapply(Omega.half, function(x) {solve(crossprod(x))})
+  O.i <- matrix(1, nrow = 1, ncol = 1)
+  for (i in 1:length(Omega.inv)) {
+    O.i <- Omega.inv[[i]]%x%O.i
+  }
+
+  fix.beta = FALSE;
+  if (is.null(max.iter.em)) {
+    if (length(num.samp) > 1) {
+      max.iter.em <- length(num.samp) - 1
+    } else {
+      max.iter.em <- 1
+    }
+  }
+  if (length(num.samp) == 1) {
+    num.samp <- rep(num.samp, max.iter.em + 1)
+  }
+  if (print.iter) {cat("Set Starting Value\n")}
+  # Get initial values
+  samples <- sampler(X = X, y = y, Omega.half = Omega.half, num.samp = num.samp[1], print.iter = FALSE,
+                     max.iter = max.iter.slice, eps = eps.slice,
+                     ridge = ridge, diag.app = diag.app, burn.in = burn.in, prior = prior, c = c,
+                     U = U, Psi.half = Psi.half, sig.sq = sig.sq, reg = reg, fix.beta = FALSE,
+                     est.V = est.V, kron.app = kron.app, rho = rho)
+  post.mean <- c(colMeans(samples$gammas), colMeans(samples$Bs))
+  post.median <- c(apply(samples$gammas, 2, median), apply(samples$Bs, 2, median))
+
+  fix.beta = TRUE;
+  beta.fix <- post.mean
+
+  betas <- matrix(nrow = max.iter.em, ncol = prod(dim(X)[-1]) + ifelse(is.null(U), 0, ncol(U)))
+
+  for (i in 1:max.iter.em) {
+
+    if (print.iter) {cat("EM Iteration: ", i, "\n")}
+
+    beta.fix[beta.fix == 0] <- rnorm(sum(beta.fix == 0))
+
+    samples.diag <- sampler(X = X, y = y, Omega.half = Omega.half, num.samp = num.samp[i + 1], print.iter = FALSE,
+                            max.iter = max.iter.slice, eps = eps.slice,
+                            ridge = ridge, diag.app = diag.app, burn.in = burn.in, prior = prior, c = c,
+                            U = U, Psi.half = Psi.half, sig.sq = sig.sq, reg = reg, fix.beta = fix.beta,
+                            beta.fix = beta.fix, est.V = est.V, kron.app = kron.app, rho = rho)
+
+    if (prior != "spn") {
+      inv.ss <- matrix(rowMeans(apply(samples.diag$Ss, 1, function(x) {tcrossprod(1/abs(x))})), nrow = prod(p), ncol = prod(p))
+    } else {
+      inv.ss <- matrix(rowMeans(apply(samples.diag$Ss, 1, function(x) {tcrossprod(1/x)})), nrow = prod(p), ncol = prod(p))
+    }
+
+
+    penC[2:nrow(penC), 2:ncol(penC)] <- (O.i*inv.ss)
+
+    if (reg == "logit") {
+      beta.fix <- coord.desc(y = y, X = UW, Omega.inv = penC,
+                               print.iter = FALSE, max.iter = max.iter, eps = eps)$beta
+    } else if (reg == "linear") {
+      beta.fix <- coord.desc.lin(y = y, X = UW, Omega.inv = penC,
+                                print.iter = FALSE, max.iter = max.iter, eps = eps, sig.sq = sig.sq)$beta
+    }
+
+    if (is.null(U)) {
+      betas[i, ] <- beta.fix[-1]
+    } else {
+      betas[i, ] <- beta.fix
+    }
+
+    if (i > 1) {
+      if (mean((betas[i - 1, ] - betas[i, ])^2) < eps.em) {
+        break
+      }
+    }
+  }
+
+  if (is.null(U)) {
+    post.mean <- post.mean[-1]
+    post.median <- post.median[-1]
+  }
+
+  return(list("post.mean" = post.mean, "post.med" = post.median, betas = betas))
+
+}
+
