@@ -954,7 +954,7 @@ em.est <- function(X, y, Omega.half,
     }
 
     if (i > 1) {
-      if (mean((betas[i - 1, ] - betas[i, ])^2) < eps.em) {
+      if (mean(abs(betas[i - 1, ] - betas[i, ])) < eps.em) {
         break
       }
     }
