@@ -941,10 +941,10 @@ em.est <- function(X, y, Omega.half,
 
     if (reg == "logit") {
       beta.fix <- coord.desc(y = y, X = UW, Omega.inv = penC,
-                               print.iter = FALSE, max.iter = max.iter, eps = eps)$beta
+                               print.iter = FALSE, max.iter = max.iter.slice, eps = eps.slice)$beta
     } else if (reg == "linear") {
       beta.fix <- coord.desc.lin(y = y, X = UW, Omega.inv = penC,
-                                print.iter = FALSE, max.iter = max.iter, eps = eps, sig.sq = sig.sq)$beta
+                                print.iter = FALSE, max.iter = max.iter.slice, eps = eps.slice, sig.sq = sig.sq)$beta
     }
 
     if (is.null(U)) {
