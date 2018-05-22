@@ -174,22 +174,28 @@ get.kron.row <- function(i, Omega) {
   return(row)
 }
 
+#' @export
 sym.sq.root <- function(A) {
   A.eig <- eigen(A)
   crossprod(t(A.eig$vectors), tcrossprod(diag(sqrt(ifelse(A.eig$values > 0, A.eig$values, 0)),
                                               nrow = nrow(A), ncol = ncol(A)), A.eig$vectors))
 }
+
+#' @export
 sym.sq.root.inv <- function(A) {
   A.eig <- eigen(A)
   crossprod(t(A.eig$vectors), tcrossprod(diag(sqrt(ifelse(A.eig$values > 0, 1/A.eig$values, 0)),
                                               nrow = nrow(A), ncol = ncol(A)), A.eig$vectors))
 }
+
+#' @export
 ei.inv <- function(A) {
   A.eig <- eigen(A)
   crossprod(t(A.eig$vectors), tcrossprod(diag(ifelse(A.eig$values > 0, 1/A.eig$values, 0),
                                               nrow = nrow(A), ncol = ncol(A)), A.eig$vectors))
 }
 
+#' @export
 amprod.mc <- function (A, M, k) {
   K <- length(dim(A))
   AM <- crossprod(t(M), mat(A, k))
@@ -197,6 +203,7 @@ amprod.mc <- function (A, M, k) {
   return(aperm(AMA, match(1:K, c(k, (1:K)[-k]))))
 }
 
+#' @export
 atrans.mc <- function(A, B) {
   X <- A
   for (k in 1:length(B)) {
