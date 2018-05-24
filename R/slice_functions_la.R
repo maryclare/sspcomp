@@ -559,7 +559,7 @@ sampler <- function(X, y, Omega.half = NULL,
   for (i in 1:(num.samp + burn.in)) {
     if (print.iter) {cat("i=", i, "\n")}
 
-    if (null.ridge & ((max(null.Omega.half) == 1 | (!max(null.Omega.half) == 1 & i == 1)) | prior != "sno" | (i == burn.in + 1 & est.V))) {
+    if (null.ridge | (i == burn.in + 1 & est.V)) {
       if (print.iter) {cat("Set Sampling Values\n")}
       if (print.iter) {cat("Get Mode\n")}
       if (reg == "logit") {
