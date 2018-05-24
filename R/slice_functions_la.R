@@ -1,3 +1,29 @@
+make.ar.mat <- function(p, rho, inv) {
+  if (inv) {
+    ARMat <- diag(p)
+    for (l in 1:p) {
+      if (l == 1 | l == p) {
+        ARMat[l, l] <- (1 - rho^2)^(-1)
+      } else {
+        ARMat[l, l] <- (1 + rho^2)*(1 - rho^2)^(-1)
+      }
+      if (l < p) {
+        ARMat[l, l + 1] <- -rho*(1 - rho^2)^(-1)
+        ARMat[l + 1, l] <- -rho*(1 - rho^2)^(-1)
+      }
+    }
+  } else {
+    ARMat <- diag(p)
+    for (i in 1:p) {
+      for (j in 1:p) {
+        ARMat[i, j] <- rho^(abs(i - j))
+      }
+    }
+  }
+
+  return(ARMat)
+}
+
 # Snagged from tensr
 mat <- function (A, k) {
   Ak <- t(apply(A, k, "c"))
@@ -54,18 +80,7 @@ cond.rho.log <- function(rho, B, pr.a, pr.b, j) {
 
   c1 <- -(prod(p[-j])*(p[j] - 1)/2)*log(1 - rho^2)
 
-  O.i <- diag(p[j])
-  for (i in 1:p[j]) {
-    if (i == 1 | i == p[j]) {
-      O.i[i, i] <- (1 - rho^2)^(-1)
-    } else {
-      O.i[i, i] <- (1 + rho^2)*(1 - rho^2)^(-1)
-    }
-    if (i < p[j]) {
-      O.i[i, i + 1] <- -rho*(1 - rho^2)^(-1)
-      O.i[i + 1, i] <- -rho*(1 - rho^2)^(-1)
-    }
-  }
+  O.i <- make.ar.mat(p = p[j], rho = rho, inv = TRUE)
 
   c2 <- -sum(diag(crossprod(B.mat, crossprod(O.i, B.mat))))/2
   c3 <- dbeta((rho + 1)/2, pr.a, pr.b, log = TRUE)
@@ -416,6 +431,16 @@ sampler <- function(X, y, Omega.half = NULL,
 
   # Set up indicators for null arguments, will be used to decide whether or not to resample
   null.Omega.half <- unlist(lapply(Omega.half, function(x) {is.null(x)}))
+
+
+  # Set starting values
+  null.rho <- is.null(rho)
+  if (null.rho) {
+    rho <- 0
+    rho.psi <- 0
+  }
+  # Specification of rho for first matrix overrides specification of Omega.half
+  null.Omega.half[[1]] <- null.rho
   null.ridge <- is.null(ridge)
   null.U <- is.null(U)
   if (max(null.Omega.half) == 1) {
@@ -425,11 +450,19 @@ sampler <- function(X, y, Omega.half = NULL,
       res.Psi <- vector("list", length(p))
     }
     for (i in which(null.Omega.half)) {
-      Omega.half[[i]] <- diag(p[i])
+      if (i != 1) {
+        Omega.half[[i]] <- diag(p[i])
+      } else {
+        Omega.half[[i]] <- sym.sq.root(make.ar.mat(p = p[i], rho = rho, inv = FALSE))
+      }
       res.Omega[[i]] <- array(dim = c(num.samp, p[i], p[i]))
       res.Sigma[[i]] <- array(dim = c(num.samp, p[i], p[i]))
       if (prior == "spn") {
-        Psi.half[[i]] <- diag(p[i])
+        if (i != 1) {
+          Psi.half[[i]] <- diag(p[i])
+        } else {
+          Psi.half[[i]] <- sym.sq.root(make.ar.mat(p = p[i], rho = rho.psi, inv = FALSE))
+        }
         res.Psi[[i]] <- array(dim = c(num.samp, p[i], p[i]))
       }
     }
@@ -464,12 +497,9 @@ sampler <- function(X, y, Omega.half = NULL,
   res.D <- array(dim = c(num.samp, prod(p)))
 
 
-  # Set starting values
-  null.rho <- is.null(rho)
-  if (null.rho) {
-    rho <- 0
-    rho.psi <- 0
-  }
+
+
+
   null.c <- is.null(c)
   if (null.c) {
     c <- 1
@@ -560,15 +590,15 @@ sampler <- function(X, y, Omega.half = NULL,
   for (i in 1:(num.samp + burn.in)) {
     if (print.iter) {cat("i=", i, "\n")}
 
-    if (null.ridge | (i == burn.in + 1 & est.V)) {
-      if (print.iter) {cat("Set Sampling Values\n")}
-      if (print.iter) {cat("Get Mode\n")}
+    if ((null.ridge | (i == burn.in + 1 & est.V))) {
+
       if (reg == "logit") {
         start.beta <- rep(0, ncol(UW))
         # if (i > 1) {start.beta <- z.tilde} # This line makes things behave poorly
         if (from.prior) {
           z.tilde <- rep(0, length(start.beta))
         } else {
+          if (print.iter) {cat("Get Mode\n")}
           z.tilde <- coord.desc(y = y, X = UW, Omega.inv = penC,
                                 print.iter = FALSE, max.iter = max.iter, eps = eps,
                                 start.beta = start.beta)$beta
@@ -580,6 +610,7 @@ sampler <- function(X, y, Omega.half = NULL,
         if (from.prior) {
           z.tilde <- rep(0, length(start.beta))
         } else {
+          if (print.iter) {cat("Get Mode\n")}
           z.tilde <- coord.desc.lin(y = y, X = UW, sig.sq = sig.sq, Omega.inv = penC,
                                     print.iter = FALSE, max.iter = max.iter, eps = eps,
                                     start.beta = start.beta)$beta
@@ -711,20 +742,11 @@ sampler <- function(X, y, Omega.half = NULL,
                                            "pr.a" = pr.rho.a,
                                            "pr.b" = pr.rho.b,
                                            "j" = k))
-        Omega.inv[[k]] <- diag(p[k])
-        for (l in 1:p[k]) {
-          if (l == 1 | l == p[k]) {
-            Omega.inv[[k]][l, l] <- (1 - rho^2)^(-1)
-          } else {
-            Omega.inv[[k]][l, l] <- (1 + rho^2)*(1 - rho^2)^(-1)
-          }
-          if (l < p[k]) {
-            Omega.inv[[k]][l, l + 1] <- -rho*(1 - rho^2)^(-1)
-            Omega.inv[[k]][l + 1, l] <- -rho*(1 - rho^2)^(-1)
-          }
-        }
+        Omega.inv[[k]] <- make.ar.mat(p = p[k], rho = rho, inv = TRUE)
+
       } else {
         Covar <- t(apply(Covar, k, "c"))
+        if (print.iter) {print(solve(tcrossprod(Covar) + diag(p[k])))}
         Omega.inv[[k]] <- rWishart(1, prod(p[-k]) + p[k] + 2, solve(tcrossprod(Covar) + diag(p[k])))[, , 1]
       }
       Omega.inv.ei <- eigen(Omega.inv[[k]])
@@ -751,20 +773,10 @@ sampler <- function(X, y, Omega.half = NULL,
                                           "pr.b" = pr.rho.b,
                                           "j" = k))
           # print(rho.psi)
-          Psi.inv[[k]] <- diag(p[k])
-          for (l in 1:p[k]) {
-            if (l == 1 | l == p[k]) {
-              Psi.inv[[k]][l, l] <- (1 - rho.psi^2)^(-1)
-            } else {
-              Psi.inv[[k]][l, l] <- (1 + rho.psi^2)*(1 - rho.psi^2)^(-1)
-            }
-            if (l < p[k]) {
-              Psi.inv[[k]][l, l + 1] <- -rho.psi*(1 - rho.psi^2)^(-1)
-              Psi.inv[[k]][l + 1, l] <- -rho.psi*(1 - rho.psi^2)^(-1)
-            }
-          }
+          Psi.inv[[k]] <- make.ar.mat(p = p[k], rho = rho.psi, inv = TRUE)
         } else {
           Covar <- t(apply(Covar, k, "c"))
+          if (print.iter) {print(solve(tcrossprod(Covar) + diag(p[k])))}
           Psi.inv[[k]] <- rWishart(1, prod(p[-k]) + p[k] + 2, solve(tcrossprod(Covar) + diag(p[k])))[, , 1]
         }
         Psi.inv.ei <- eigen(Psi.inv[[k]])
