@@ -749,7 +749,6 @@ sampler <- function(X, y, Omega.half = NULL,
         if (print.iter) {print(solve(tcrossprod(Covar) + diag(p[k])))}
         Omega.inv[[k]] <- rWishart(1, prod(p[-k]) + p[k] + 2, solve(tcrossprod(Covar) + diag(p[k])))[, , 1]
       }
-      Omega.inv.ei <- eigen(Omega.inv[[k]])
       Omega[[k]] <- ei.inv(Omega.inv[[k]])
       res.Omega[[k]][i - burn.in, , ] <- Omega[[k]]
 
@@ -779,12 +778,12 @@ sampler <- function(X, y, Omega.half = NULL,
           if (print.iter) {print(solve(tcrossprod(Covar) + diag(p[k])))}
           Psi.inv[[k]] <- rWishart(1, prod(p[-k]) + p[k] + 2, solve(tcrossprod(Covar) + diag(p[k])))[, , 1]
         }
-        Psi.inv.ei <- eigen(Psi.inv[[k]])
         Psi[[k]] <- ei.inv(Psi.inv[[k]])
         if (i > burn.in) {
           res.Psi[[k]][i - burn.in, , ] <- Psi[[k]]
         }
-        Psi.half[[k]] <- sym.sq.root.inv(Psi.inv[[k]])
+        Psi.half[[k]] <- sym.sq.root(Psi[[k]])
+        Psi.half.inv[[k]] <- sym.sq.root(Psi.inv[[k]])
       }
 
       if (prior == "sno") {
