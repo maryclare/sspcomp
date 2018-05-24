@@ -613,7 +613,7 @@ sampler <- function(X, y, Omega.half = NULL,
           }
         }
         if (from.prior) {
-          V.half <- rep(1, length(z.tilde))
+          V.half <- c(rep(10^(-12), q), rep(1, length(z.tilde) - q))
         }
         # V.half <- 1/sqrt(V.inv)
         V.inv <- 1/V.half^2
