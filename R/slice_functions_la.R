@@ -402,7 +402,8 @@ sampler <- function(X, y, Omega.half = NULL,
                     diag.app = FALSE, kron.app = FALSE,
                     burn.in = 0, prior = "sno", c = 1, Psi.half = NULL, sig.sq = NULL, reg = "linear",
                     fix.beta = FALSE, beta.fix = rep(0, prod(dim(X)[2:3]) + ifelse(is.null(U), 1, ncol(U))),
-                    est.V = FALSE, rho = 0, pr.rho.a = 10, pr.rho.b = 10, tune = 0.5) {
+                    est.V = FALSE, rho = 0, pr.rho.a = 10, pr.rho.b = 10, tune = 0.5,
+                    from.prior = TRUE) {
 
   # Record some quantities and set up objects to save results in
   n <- length(y)
@@ -565,16 +566,24 @@ sampler <- function(X, y, Omega.half = NULL,
       if (reg == "logit") {
         start.beta <- rep(0, ncol(UW))
         # if (i > 1) {start.beta <- z.tilde} # This line makes things behave poorly
-        z.tilde <- coord.desc(y = y, X = UW, Omega.inv = penC,
-                              print.iter = FALSE, max.iter = max.iter, eps = eps,
-                              start.beta = start.beta)$beta
+        if (from.prior) {
+          z.tilde <- rep(0, length(start.beta))
+        } else {
+          z.tilde <- coord.desc(y = y, X = UW, Omega.inv = penC,
+                                print.iter = FALSE, max.iter = max.iter, eps = eps,
+                                start.beta = start.beta)$beta
+        }
       } else if (reg == "linear") {
 
         start.beta <- rep(0, ncol(UW))
         # if (i > 1) {start.beta <- z.tilde}
-        z.tilde <- coord.desc.lin(y = y, X = UW, sig.sq = sig.sq, Omega.inv = penC,
-                                  print.iter = FALSE, max.iter = max.iter, eps = eps,
-                                  start.beta = start.beta)$beta
+        if (from.prior) {
+          z.tilde <- rep(0, length(start.beta))
+        } else {
+          z.tilde <- coord.desc.lin(y = y, X = UW, sig.sq = sig.sq, Omega.inv = penC,
+                                    print.iter = FALSE, max.iter = max.iter, eps = eps,
+                                    start.beta = start.beta)$beta
+        }
       }
       UWz.tilde <- crossprod(t(UW), z.tilde)[, 1]
 
@@ -602,6 +611,9 @@ sampler <- function(X, y, Omega.half = NULL,
             # V.inv <- as.vector(1/diag(cov(res.z)))
             V.half <- sqrt(as.vector(diag(cov(res.z))))
           }
+        }
+        if (from.prior) {
+          V.half <- rep(1, length(z.tilde))
         }
         # V.half <- 1/sqrt(V.inv)
         V.inv <- 1/V.half^2
