@@ -413,11 +413,10 @@ sampler <- function(X, y, Omega.half = NULL,
                     print.iter = TRUE,
                     max.iter = 1000,
                     eps = 10^(-12),
-                    ridge = NULL,
                     diag.app = FALSE, kron.app = FALSE,
                     burn.in = 0, prior = "sno", c = 1, Psi.half = NULL, sig.sq = NULL, reg = "linear",
                     fix.beta = FALSE, beta.fix = rep(0, prod(dim(X)[2:3]) + ifelse(is.null(U), 1, ncol(U))),
-                    est.V = FALSE, rho = 0, pr.rho.a = 10, pr.rho.b = 10, tune = 0.5,
+                    rho = 0, pr.rho.a = 10, pr.rho.b = 10, tune = 0.5,
                     from.prior = TRUE) {
 
   # Record some quantities and set up objects to save results in
@@ -441,7 +440,6 @@ sampler <- function(X, y, Omega.half = NULL,
   }
   # Specification of rho for first matrix overrides specification of Omega.half
   null.Omega.half[[1]] <- null.rho
-  null.ridge <- is.null(ridge)
   null.U <- is.null(U)
   if (max(null.Omega.half) == 1) {
     res.Omega <- vector("list", length(p))
@@ -488,17 +486,12 @@ sampler <- function(X, y, Omega.half = NULL,
   # res.c <- array(dim = c(num.samp, 1))
   res.rho <- array(dim = c(num.samp, 1))
   res.rho.psi <- array(dim = c(num.samp, 1))
-  res.z <- array(dim = c(burn.in, q + prod(p)))
   res.B <- array(dim = c(num.samp, prod(p)))
   res.S <- array(dim = c(num.samp, prod(p)))
   res.theta <- numeric(num.samp)
   res.eta <- numeric(num.samp)
   res.gamma <- array(dim = c(num.samp, q))
   res.D <- array(dim = c(num.samp, prod(p)))
-
-
-
-
 
   null.c <- is.null(c)
   if (null.c) {
@@ -523,130 +516,59 @@ sampler <- function(X, y, Omega.half = NULL,
 
   penC <- diag(c(rep(0, ncol(U)), rep(1, ncol(W))))
 
-  if (!null.ridge) {
-
-    if (reg == "logit") {
-      z.tilde <- coord.desc(y = y, X = UW, Omega.inv = ridge*penC,
-                            print.iter = FALSE, max.iter = max.iter, eps = eps)$beta
-    } else if (reg == "linear") {
-      z.tilde <- coord.desc.lin(y = y, X = UW, Omega.inv = ridge*penC,
-                                print.iter = FALSE, max.iter = max.iter, eps = eps, sig.sq = sig.sq)$beta
-    }
-
-    UWz.tilde <- crossprod(t(UW), z.tilde)[, 1]
-
-    if (reg == "logit") {
-      AA <- diag(exp(UWz.tilde)/(1 + exp(UWz.tilde))^2)
-    } else {
-      AA <- diag(length(UWz.tilde))
-    }
-
-    if (diag.app) {
-
-      AAU <- crossprod(sqrt(AA), U)
-      AAX <- mat(amprod.mc(X.arr.s, sqrt(AA), 1), 1)
-
-      if (n < prod(p)) {
-        svd.A <- svd(AAX)
-        R.A <- svd.A$v
-        d.A <- svd.A$d
-        V.half <- sqrt(c(diag(solve(crossprod(AAU))), rep(1, prod(p)) - apply(R.A, 1, function(x) {sum(x^2*(d.A^2/(1 + d.A^2)))})))
-      } else {
-        V.half <- sqrt(c(diag(solve(crossprod(AAU))), diag(solve(diag(prod(p)) + crossprod(AAX)))))
-      }
-      # BB <- crossprod(AA, UW^2)
-      # if (null.ridge) {
-      #   V.inv <- colSums(BB) + 1
-      # } else {
-      #   V.inv <- colSums(BB) + ridge
-      # }
-      if (est.V) {
-        if (i > burn.in & burn.in > 1) {
-          # V.inv <- as.vector(1/diag(cov(res.z)))
-          V.half <- sqrt(as.vector(diag(cov(res.z))))
-        }
-      }
-      V.inv <- 1/V.half^2
-      # V.half <- 1/sqrt(V.inv)
-    } else if (kron.app) {
-      Vs <- V.factor(X = amprod.mc(X.arr.s, sqrt(AA), 1), U = crossprod(sqrt(AA), U))
-      V.half <- Vs[["V.half"]]
-      V.inv <- Vs[["V.inv"]]
-    } else {
-      BB <- crossprod(AA, UW)
-      UWtBB <- crossprod(UW, BB)
-
-      if (!est.V) {
-        V.inv <- UWtBB + ridge*diag(ncol(UW))
-      } else if (est.V) {
-        if (i > burn.in & burn.in > prod(p) + q) {
-          V.inv <- solve(cov(res.z))
-        }
-      }
-      V.half <- sym.sq.root.inv(V.inv)
-    }
-  }
-
   for (i in 1:(num.samp + burn.in)) {
     if (print.iter) {cat("i=", i, "\n")}
 
-    if (((null.ridge & max(null.Omega.half) == 1 & prior != "sno") | (null.ridge & max(null.Omega.half) == 0 & prior == "sno" & i == 1) | (i == burn.in + 1 & est.V))) {
+    # Set mean for proposal distribution
+   if (from.prior) {
+     z.tilde <- rep(0, ncol(UW))
+   } else if ((i == 1 & prior == "sno" & max(null.Omega.half[-1]) == 0 & (!null.rho & !null.Omega.half[1]) & reg == "linear") |
+              (i > 1 & (prior != "sno" | max(null.Omega.half[-1]) != 0 | (null.rho | null.Omega.half[1]) | reg != "linear"))) {
+    if (reg == "logit") {
+     if (print.iter) {cat("Get Mode\n")}
+      z.tilde <- coord.desc(y = y, X = UW, Omega.inv = penC,
+                            print.iter = FALSE, max.iter = max.iter, eps = eps,
+                            start.beta = rep(0, ncol(UW)))$beta
+    } else if (reg == "linear") {
+      if (print.iter) {cat("Get Mode\n")}
+        z.tilde <- coord.desc.lin(y = y, X = UW, sig.sq = sig.sq, Omega.inv = penC,
+                                  print.iter = FALSE, max.iter = max.iter, eps = eps,
+                                  start.beta = rep(0, ncol(UW)))$beta
+    }
+   }
+    if (from.prior) {
+      V.half <- c(rep(10^(-12), q), rep(1, length(z.tilde) - q))
+      V.inv <- 1/V.half^2
+    } else {
 
-      if (reg == "logit") {
-        start.beta <- rep(0, ncol(UW))
-        # if (i > 1) {start.beta <- z.tilde} # This line makes things behave poorly
-        if (from.prior) {
-          z.tilde <- rep(0, length(start.beta))
+        if (reg == "logit") {
+          UWz.tilde <- crossprod(t(UW), z.tilde)[, 1]
+          AA <- diag(exp(UWz.tilde)/(1 + exp(UWz.tilde))^2)
+          AAU <- crossprod(sqrt(AA), U)
+          AAX <- mat(amprod.mc(X.arr.s, sqrt(AA), 1), 1)
+          if (!diag.app & !kron.app) {
+            BB <- crossprod(AA, UW)
+          }
+
         } else {
-          if (print.iter) {cat("Get Mode\n")}
-          z.tilde <- coord.desc(y = y, X = UW, Omega.inv = penC,
-                                print.iter = FALSE, max.iter = max.iter, eps = eps,
-                                start.beta = start.beta)$beta
-        }
-      } else if (reg == "linear") {
-
-        start.beta <- rep(0, ncol(UW))
-        # if (i > 1) {start.beta <- z.tilde}
-        if (from.prior) {
-          z.tilde <- rep(0, length(start.beta))
-        } else {
-          if (print.iter) {cat("Get Mode\n")}
-          z.tilde <- coord.desc.lin(y = y, X = UW, sig.sq = sig.sq, Omega.inv = penC,
-                                    print.iter = FALSE, max.iter = max.iter, eps = eps,
-                                    start.beta = start.beta)$beta
-        }
-      }
-      UWz.tilde <- crossprod(t(UW), z.tilde)[, 1]
-
-      if (reg == "logit") {
-        AA <- diag(exp(UWz.tilde)/(1 + exp(UWz.tilde))^2)
-      } else {
-        AA <- diag(length(UWz.tilde))
-      }
-      if (diag.app) {
-        AAU <- crossprod(sqrt(AA), U)
-        AAX <- mat(amprod.mc(X.arr.s, sqrt(AA), 1), 1)
-
-        if (n < prod(p)) {
-          svd.A <- svd(AAX)
-          R.A <- svd.A$v
-          d.A <- svd.A$d
-          V.half <- sqrt(c(diag(solve(crossprod(AAU))), rep(1, prod(p)) - apply(R.A, 1, function(x) {sum(x^2*(d.A^2/(1 + d.A^2)))})))
-        } else {
-          V.half <- sqrt(c(diag(solve(crossprod(AAU))), diag(solve(diag(prod(p)) + crossprod(AAX)))))
-        }
-        # BB <- crossprod(AA, UW^2)
-        # V.inv <- colSums(BB) + diag(penC)
-        if (est.V) {
-          if (i > burn.in & burn.in > 1) {
-            # V.inv <- as.vector(1/diag(cov(res.z)))
-            V.half <- sqrt(as.vector(diag(cov(res.z))))
+          AA <- diag(length(UWz.tilde))
+          AAU <- U
+          AAX <- mat(X.arr.s, 1)
+          if (!diag.app & !kron.app) {
+            BB <- UW
           }
         }
-        if (from.prior) {
-          V.half <- c(rep(10^(-12), q), rep(1, length(z.tilde) - q))
-        }
-        # V.half <- 1/sqrt(V.inv)
+        if (diag.app) {
+
+          if (n < prod(p)) {
+            svd.A <- svd(AAX)
+            R.A <- svd.A$v
+            d.A <- svd.A$d
+            V.half <- sqrt(c(diag(solve(crossprod(AAU))), rep(1, prod(p)) - apply(R.A, 1, function(x) {sum(x^2*(d.A^2/(1 + d.A^2)))})))
+          } else {
+            V.half <- sqrt(c(diag(solve(crossprod(AAU))), diag(solve(diag(prod(p)) + crossprod(AAX)))))
+          }
+
         V.inv <- 1/V.half^2
 
       } else if (kron.app) {
@@ -655,14 +577,9 @@ sampler <- function(X, y, Omega.half = NULL,
         V.inv <- Vs[["V.inv"]]
       } else {
 
-        BB <- crossprod(AA, UW)
         UWtBB <- crossprod(UW, BB)
         V.inv <- UWtBB + penC
-        if (est.V) {
-          if (i > burn.in & burn.in > prod(p) + q) {
-            V.inv <- solve(cov(res.z))
-          }
-        }
+
         V.half <- sym.sq.root.inv(V.inv)
       }
     }
@@ -847,8 +764,6 @@ sampler <- function(X, y, Omega.half = NULL,
           res.rho.psi[i - burn.in] <- rho.psi
         }
       }
-    } else {
-      res.z[i, ] <- c(gamma, c(Z))
     }
   }
   if (max(null.Omega.half) == 1) {
@@ -894,10 +809,8 @@ em.est <- function(X, y, Omega.half,
                    eps.slice = 10^(-12),
                    max.iter.em = NULL,
                    eps.em = 10^(-3),
-                   ridge = NULL,
                    diag.app = FALSE, kron.app = FALSE,
-                   burn.in = 0, prior = "sno", c = 1, Psi.half = NULL, sig.sq = NULL, reg = "linear",
-                   est.V = FALSE, rho = 0) {
+                   burn.in = 0, prior = "sno", c = 1, Psi.half = NULL, sig.sq = NULL, reg = "linear", rho = 0) {
 
   W <- t(apply(X, 1, "c"))
 
@@ -929,10 +842,8 @@ em.est <- function(X, y, Omega.half,
   if (print.iter) {cat("Set Starting Value\n")}
   # Get initial values
   samples <- sampler(X = X, y = y, Omega.half = Omega.half, num.samp = num.samp[1], print.iter = FALSE,
-                     max.iter = max.iter.slice, eps = eps.slice,
-                     ridge = ridge, diag.app = diag.app, burn.in = burn.in, prior = prior, c = c,
-                     U = U, Psi.half = Psi.half, sig.sq = sig.sq, reg = reg, fix.beta = FALSE,
-                     est.V = est.V, kron.app = kron.app, rho = rho)
+                     max.iter = max.iter.slice, eps = eps.slice, diag.app = diag.app, burn.in = burn.in, prior = prior, c = c,
+                     U = U, Psi.half = Psi.half, sig.sq = sig.sq, reg = reg, fix.beta = FALSE, kron.app = kron.app, rho = rho)
   post.mean <- c(colMeans(samples$gammas), colMeans(samples$Bs))
   post.median <- c(apply(samples$gammas, 2, median), apply(samples$Bs, 2, median))
 
@@ -948,10 +859,9 @@ em.est <- function(X, y, Omega.half,
     beta.fix[beta.fix == 0] <- rnorm(sum(beta.fix == 0))
 
     samples.diag <- sampler(X = X, y = y, Omega.half = Omega.half, num.samp = num.samp[i + 1], print.iter = FALSE,
-                            max.iter = max.iter.slice, eps = eps.slice,
-                            ridge = ridge, diag.app = diag.app, burn.in = burn.in, prior = prior, c = c,
+                            max.iter = max.iter.slice, eps = eps.slice, diag.app = diag.app, burn.in = burn.in, prior = prior, c = c,
                             U = U, Psi.half = Psi.half, sig.sq = sig.sq, reg = reg, fix.beta = fix.beta,
-                            beta.fix = beta.fix, est.V = est.V, kron.app = kron.app, rho = rho)
+                            beta.fix = beta.fix, kron.app = kron.app, rho = rho)
 
     if (prior != "spn") {
       inv.ss <- matrix(rowMeans(apply(samples.diag$Ss, 1, function(x) {tcrossprod(1/abs(x))})), nrow = prod(p), ncol = prod(p))
