@@ -277,7 +277,12 @@ h.log <- function(theta, d0, d1, X, U, y, beta, Omega.half, beta.tilde, V.inv, O
 
     c3 <- sum(crossprod(beta - beta.tilde, crossprod(V.inv, beta - beta.tilde)))/2
 
-  } else if (is.vector(V.inv)) {
+  } else if (class(V.inv) == "dsyMatrix" | class(V.inv) == "dpoMatrix") {
+
+    c3 <- sum(Matrix::crossprod(beta - beta.tilde, Matrix::crossprod(V.inv, beta - beta.tilde)))/2
+
+  }
+  else if (is.vector(V.inv)) {
     c3 <- sum((beta - beta.tilde)^2*V.inv)/2
   }
   comp.sum <- c(c1, c2, c3)
@@ -345,6 +350,8 @@ sample.d <- function(theta, delta, V.half) {
     d <- c(gamma, beta)
   } else if (is.matrix(V.half)) {
     d <- crossprod(V.half, rnorm(nrow(V.half)))
+  } else if (class(V.half) == "Cholesky") {
+    d <- Matrix::crossprod(V.half, rnorm(nrow(V.half)))
   } else if (is.vector(V.half)) {
     d <- V.half*rnorm(length(V.half))
   }
@@ -425,7 +432,8 @@ sampler <- function(X, y, Omega.half = NULL,
                     burn.in = 0, prior = "sno", c = 1, Psi.half = NULL, sig.sq = NULL, reg = "linear",
                     fix.beta = FALSE, beta.fix = rep(0, prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))),
                     rho = 0, pr.rho.a = 10, pr.rho.b = 10, tune = 0.5,
-                    from.prior = TRUE, rank = min(length(y), prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))) {
+                    from.prior = TRUE, rank = min(length(y), prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))),
+                    thresh = NULL, do.svd = TRUE) {
 
   # Record some quantities and set up objects to save results in
   rank <- rank
@@ -442,6 +450,7 @@ sampler <- function(X, y, Omega.half = NULL,
 
 
   # Set starting values
+  null.thresh <- is.null(thresh)
   null.rho <- is.null(rho)
   if (null.rho) {
     rho <- 0
@@ -549,13 +558,13 @@ sampler <- function(X, y, Omega.half = NULL,
       V.half <- c(rep(10^(12), q), rep(1, length(z.tilde) - q))
       V.inv <- 1/V.half^2
     } else {
-
+        cat("Get Pieces for Covariance Matrix\n")
         if (reg == "logit") {
           UWz.tilde <- crossprod(t(UW), z.tilde)[, 1]
           AA <- diag(exp(UWz.tilde)/(1 + exp(UWz.tilde))^2)
           AAU <- crossprod(sqrt(AA), U)
           AAX <- mat(amprod.mc(X.arr.s, sqrt(AA), 1), 1)
-          if (!diag.app & !kron.app) {
+          if (!diag.app) {
             BB <- crossprod(AA, UW)
           }
 
@@ -563,29 +572,29 @@ sampler <- function(X, y, Omega.half = NULL,
           AA <- diag(length(UWz.tilde))
           AAU <- U
           AAX <- mat(X.arr.s, 1)
-          if (!diag.app & !kron.app) {
+          if (!diag.app) {
             BB <- UW
           }
         }
         if (diag.app) {
 
           if (n < prod(p)) {
-            svd.A <- svd(AAX)
-            R.A <- svd.A$v
-            d.A <- svd.A$d
-            V.half <- sqrt(c(diag(solve(crossprod(AAU))), rep(1, prod(p)) - apply(R.A, 1, function(x) {sum(x^2*(d.A^2/(1 + d.A^2)))})))
+            if (do.svd) {
+              svd.A <- svd(AAX)
+              R.A <- svd.A$v
+              d.A <- svd.A$d
+              V.half <- sqrt(c(diag(solve(crossprod(AAU))), rep(1, prod(p)) - apply(R.A, 1, function(x) {sum(x^2*(d.A^2/(1 + d.A^2)))})))
+            } else {
+              V.half <- sqrt(c(diag(solve(crossprod(AAU))), rep(1, prod(p))))
+            }
           } else {
             V.half <- sqrt(c(diag(solve(crossprod(AAU))), diag(solve(diag(prod(p)) + crossprod(AAX)))))
           }
 
         V.inv <- 1/V.half^2
 
-      } else if (kron.app) {
-        Vs <- V.factor(X = amprod.mc(X.arr.s, sqrt(AA), 1), U = crossprod(sqrt(AA), U))
-        V.half <- Vs[["V.half"]]
-        V.inv <- Vs[["V.inv"]]
       } else {
-
+        cat("Get Covariance Matrix\n")
         UWtBB <- crossprod(UW, BB)
         if (rank < ncol(penC)) { # This doesn't seem to help
           V.inv <- rank.reduce(UWtBB + penC, rank = rank)
@@ -593,7 +602,16 @@ sampler <- function(X, y, Omega.half = NULL,
           V.inv <- UWtBB + penC
         }
 
-        V.half <- sym.sq.root.inv(V.inv)
+        if (!null.thresh) {
+          cat("Threshold\n")
+          V.inv[lower.tri(V.inv, diag = FALSE)] <- V.inv[lower.tri(V.inv, diag = FALSE)]*(abs(V.inv[lower.tri(V.inv, diag = FALSE)]) > thresh)
+          V.inv[upper.tri(V.inv, diag = FALSE)] <- V.inv[upper.tri(V.inv, diag = FALSE)]*(abs(V.inv[upper.tri(V.inv, diag = FALSE)]) > thresh)
+          V.inv <- as(V.inv, "dpoMatrix")
+          V.half <- Matrix::chol(Matrix::solve(V.inv))
+        } else {
+            V.half <- sym.sq.root.inv(V.inv)
+        }
+
       }
     }
     if (!fix.beta) {
@@ -822,7 +840,7 @@ em.est <- function(X, y, Omega.half,
                    eps.slice = 10^(-12),
                    max.iter.em = NULL,
                    eps.em = 10^(-3),
-                   diag.app = FALSE, kron.app = FALSE,
+                   diag.app = FALSE,
                    burn.in = 0, prior = "sno", c = 1, Psi.half = NULL, sig.sq = NULL, reg = "linear", rho = 0) {
 
   W <- t(apply(X, 1, "c"))
@@ -856,7 +874,7 @@ em.est <- function(X, y, Omega.half,
   # Get initial values
   samples <- sampler(X = X, y = y, Omega.half = Omega.half, num.samp = num.samp[1], print.iter = FALSE,
                      max.iter = max.iter.slice, eps = eps.slice, diag.app = diag.app, burn.in = burn.in, prior = prior, c = c,
-                     U = U, Psi.half = Psi.half, sig.sq = sig.sq, reg = reg, fix.beta = FALSE, kron.app = kron.app, rho = rho)
+                     U = U, Psi.half = Psi.half, sig.sq = sig.sq, reg = reg, fix.beta = FALSE, rho = rho)
   post.mean <- c(colMeans(samples$gammas), colMeans(samples$Bs))
   post.median <- c(apply(samples$gammas, 2, median), apply(samples$Bs, 2, median))
 
@@ -874,7 +892,7 @@ em.est <- function(X, y, Omega.half,
     samples.diag <- sampler(X = X, y = y, Omega.half = Omega.half, num.samp = num.samp[i + 1], print.iter = FALSE,
                             max.iter = max.iter.slice, eps = eps.slice, diag.app = diag.app, burn.in = burn.in, prior = prior, c = c,
                             U = U, Psi.half = Psi.half, sig.sq = sig.sq, reg = reg, fix.beta = fix.beta,
-                            beta.fix = beta.fix, kron.app = kron.app, rho = rho)
+                            beta.fix = beta.fix, rho = rho)
 
     if (prior != "spn") {
       inv.ss <- matrix(rowMeans(apply(samples.diag$Ss, 1, function(x) {tcrossprod(1/abs(x))})), nrow = prod(p), ncol = prod(p))
