@@ -206,6 +206,14 @@ sym.sq.root <- function(A) {
 }
 
 #' @export
+rank.reduce <- function(A, rank) {
+  A.eig <- eigen(A)
+  rs <- 1:length(A.eig$values)
+  crossprod(t(A.eig$vectors), tcrossprod(diag(ifelse(A.eig$values > 0 & rs <= rank, A.eig$values, 0),
+                                              nrow = nrow(A), ncol = ncol(A)), A.eig$vectors))
+}
+
+#' @export
 sym.sq.root.inv <- function(A) {
   A.eig <- eigen(A)
   crossprod(t(A.eig$vectors), tcrossprod(diag(sqrt(ifelse(A.eig$values > 0, 1/A.eig$values, 0)),
@@ -415,11 +423,12 @@ sampler <- function(X, y, Omega.half = NULL,
                     eps = 10^(-12),
                     diag.app = FALSE, kron.app = FALSE,
                     burn.in = 0, prior = "sno", c = 1, Psi.half = NULL, sig.sq = NULL, reg = "linear",
-                    fix.beta = FALSE, beta.fix = rep(0, prod(dim(X)[2:3]) + ifelse(is.null(U), 1, ncol(U))),
+                    fix.beta = FALSE, beta.fix = rep(0, prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))),
                     rho = 0, pr.rho.a = 10, pr.rho.b = 10, tune = 0.5,
-                    from.prior = TRUE) {
+                    from.prior = TRUE, rank = min(length(y), prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))) {
 
   # Record some quantities and set up objects to save results in
+  rank <- rank
   n <- length(y)
   p <- dim(X)[-1]
   if (!fix.beta) {
@@ -523,7 +532,7 @@ sampler <- function(X, y, Omega.half = NULL,
    if (from.prior) {
      z.tilde <- rep(0, ncol(UW))
    } else if ((i == 1 & prior == "sno" & max(null.Omega.half[-1]) == 0 & (!null.rho & !null.Omega.half[1]) & reg == "linear") |
-              (i > 1 & (prior != "sno" | max(null.Omega.half[-1]) != 0 | (null.rho | null.Omega.half[1]) | reg != "linear"))) {
+              (i >= 1 & (prior != "sno" | max(null.Omega.half[-1]) != 0 | (null.rho | null.Omega.half[1]) | reg != "linear"))) {
     if (reg == "logit") {
      if (print.iter) {cat("Get Mode\n")}
       z.tilde <- coord.desc(y = y, X = UW, Omega.inv = penC,
@@ -537,7 +546,7 @@ sampler <- function(X, y, Omega.half = NULL,
     }
    }
     if (from.prior) {
-      V.half <- c(rep(10^(-12), q), rep(1, length(z.tilde) - q))
+      V.half <- c(rep(10^(12), q), rep(1, length(z.tilde) - q))
       V.inv <- 1/V.half^2
     } else {
 
@@ -578,7 +587,11 @@ sampler <- function(X, y, Omega.half = NULL,
       } else {
 
         UWtBB <- crossprod(UW, BB)
-        V.inv <- UWtBB + penC
+        if (rank < ncol(penC)) { # This doesn't seem to help
+          V.inv <- rank.reduce(UWtBB + penC, rank = rank)
+        } else {
+          V.inv <- UWtBB + penC
+        }
 
         V.half <- sym.sq.root.inv(V.inv)
       }
