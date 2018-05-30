@@ -1,3 +1,4 @@
+#' @export
 make.ar.mat <- function(p, rho, inv) {
   if (inv) {
     ARMat <- diag(p)
@@ -74,6 +75,7 @@ slice <- function(x.tilde, ll.fun, var.lim,
   return(x.tilde.p)
 }
 
+#' @export
 cond.rho.log <- function(rho, B, pr.a, pr.b, j) {
   p <- dim(B)
   B.mat <- mat(B, j)
@@ -83,7 +85,9 @@ cond.rho.log <- function(rho, B, pr.a, pr.b, j) {
   O.i <- make.ar.mat(p = p[j], rho = rho, inv = TRUE)
 
   c2 <- -sum(diag(crossprod(B.mat, crossprod(O.i, B.mat))))/2
+
   c3 <- dbeta((rho + 1)/2, pr.a, pr.b, log = TRUE)
+
   # cat("rho=", rho, "\n")
   # cat("c1=", c1, "\n")
   # cat("c2=", c2, "\n")
@@ -560,20 +564,25 @@ sampler <- function(X, y, Omega.half = NULL,
     } else {
         cat("Get Pieces for Covariance Matrix\n")
         if (reg == "logit") {
+
           UWz.tilde <- crossprod(t(UW), z.tilde)[, 1]
           AA <- diag(exp(UWz.tilde)/(1 + exp(UWz.tilde))^2)
           AAU <- crossprod(sqrt(AA), U)
-          AAX <- mat(amprod.mc(X.arr.s, sqrt(AA), 1), 1)
-          if (!diag.app) {
-            BB <- crossprod(AA, UW)
+          if (do.svd) {
+            AAX <- mat(amprod.mc(X.arr.s, sqrt(AA), 1), 1)
+            if (!diag.app) {
+              BB <- crossprod(AA, UW)
+            }
           }
 
         } else {
           AA <- diag(length(UWz.tilde))
           AAU <- U
-          AAX <- mat(X.arr.s, 1)
-          if (!diag.app) {
-            BB <- UW
+          if (do.svd) {
+            AAX <- mat(X.arr.s, 1)
+            if (!diag.app) {
+              BB <- UW
+            }
           }
         }
         if (diag.app) {

@@ -2,10 +2,13 @@
 
 export(amprod.mc)
 export(atrans.mc)
+export(cond.rho.log)
 export(coord.desc)
 export(coord.desc.lin)
 export(ei.inv)
 export(em.est)
+export(make.ar.mat)
+export(rank.reduce)
 export(sampler)
 export(sym.sq.root)
 export(sym.sq.root.inv)
