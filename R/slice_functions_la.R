@@ -562,7 +562,7 @@ sampler <- function(X, y, Omega.half = NULL,
       V.half <- c(rep(10^(12), q), rep(1, length(z.tilde) - q))
       V.inv <- 1/V.half^2
     } else {
-        if  (print.tier) {cat("Get Pieces for Covariance Matrix\n")}
+        if  (print.iter) {cat("Get Pieces for Covariance Matrix\n")}
         if (reg == "logit") {
 
           UWz.tilde <- crossprod(t(UW), z.tilde)[, 1]
