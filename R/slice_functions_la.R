@@ -488,12 +488,12 @@ sampler <- function(X, y, Omega.half = NULL,
     }
   }
   Omega <- lapply(Omega.half, function(x) {crossprod(x)})
-  Omega.inv <- lapply(Omega, function(x) {solve(x)})
-  Omega.half.inv <- lapply(Omega.half, function(x) {solve(x)})
+  Omega.inv <- lapply(Omega, function(x) {ei.inv(x)})
+  Omega.half.inv <- lapply(Omega.half, function(x) {ei.inv(x)})
 
   if (prior == "spn") {
     Psi <- lapply(Psi.half, function(x) {crossprod(x)})
-    Psi.inv <- lapply(Psi, function(x) {solve(x)})
+    Psi.inv <- lapply(Psi, function(x) {ei.inv(x)})
   }
 
 
@@ -862,7 +862,7 @@ em.est <- function(X, y, Omega.half,
 
   penC <- matrix(0, nrow = ncol(UW), ncol = ncol(UW))
 
-  Omega.inv <- lapply(Omega.half, function(x) {solve(crossprod(x))})
+  Omega.inv <- lapply(Omega.half, function(x) {ei.inv(crossprod(x))})
   O.i <- matrix(1, nrow = 1, ncol = 1)
   for (i in 1:length(Omega.inv)) {
     O.i <- Omega.inv[[i]]%x%O.i
