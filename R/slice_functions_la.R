@@ -603,7 +603,7 @@ sampler <- function(X, y, Omega.half = NULL,
         V.inv <- 1/V.half^2
 
       } else {
-        cat("Get Covariance Matrix\n")
+        if (print.iter) {cat("Get Covariance Matrix\n")}
         UWtBB <- crossprod(UW, BB)
         if (rank < ncol(penC)) { # This doesn't seem to help
           V.inv <- rank.reduce(UWtBB + penC, rank = rank)
