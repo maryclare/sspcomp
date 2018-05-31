@@ -536,7 +536,7 @@ sampler <- function(X, y, Omega.half = NULL,
   W <- t(apply(X.arr.s, 1, "c"))
   UW <- cbind(U, W)
 
-  penC <- diag(c(rep(0, ncol(U)), rep(1, ncol(W))))
+  penC <- c(rep(0, ncol(U)), rep(1, ncol(W)))
 
   for (i in 1:(num.samp + burn.in)) {
     if (print.iter) {cat("i=", i, "\n")}
@@ -548,7 +548,7 @@ sampler <- function(X, y, Omega.half = NULL,
               (i >= 1 & (prior != "sno" | max(null.Omega.half[-1]) != 0 | (null.rho | null.Omega.half[1]) | reg != "linear"))) {
     if (reg == "logit") {
      if (print.iter) {cat("Get Mode\n")}
-      z.tilde <- coord.desc(y = y, X = UW, Omega.inv = penC,
+      z.tilde <- coord.desc.logit(y = y, X = UW, Omega.inv = penC,
                             print.iter = FALSE, max.iter = max.iter, eps = eps,
                             start.beta = rep(0, ncol(UW)))$beta
     } else if (reg == "linear") {
@@ -605,10 +605,10 @@ sampler <- function(X, y, Omega.half = NULL,
       } else {
         if (print.iter) {cat("Get Covariance Matrix\n")}
         UWtBB <- crossprod(UW, BB)
-        if (rank < ncol(penC)) { # This doesn't seem to help
-          V.inv <- rank.reduce(UWtBB + penC, rank = rank)
+        if (rank < length(penC)) { # This doesn't seem to help
+          V.inv <- rank.reduce(UWtBB + diag(penC), rank = rank)
         } else {
-          V.inv <- UWtBB + penC
+          V.inv <- UWtBB + diag(penC)
         }
 
         if (!null.thresh) {
@@ -850,7 +850,8 @@ em.est <- function(X, y, Omega.half,
                    max.iter.em = NULL,
                    eps.em = 10^(-3),
                    diag.app = FALSE,
-                   burn.in = 0, prior = "sno", c = 1, Psi.half = NULL, sig.sq = NULL, reg = "linear", rho = 0) {
+                   burn.in = 0, prior = "sno", c = 1, Psi.half = NULL, sig.sq = NULL, reg = "linear",
+                   rho = 0) {
 
   W <- t(apply(X, 1, "c"))
 
@@ -913,7 +914,7 @@ em.est <- function(X, y, Omega.half,
     penC[2:nrow(penC), 2:ncol(penC)] <- (O.i*inv.ss)
 
     if (reg == "logit") {
-      beta.fix <- coord.desc(y = y, X = UW, Omega.inv = penC,
+      beta.fix <- coord.desc.logit(y = y, X = UW, Omega.inv = penC,
                                print.iter = FALSE, max.iter = max.iter.slice, eps = eps.slice)$beta
     } else if (reg == "linear") {
       beta.fix <- coord.desc.lin(y = y, X = UW, Omega.inv = penC,

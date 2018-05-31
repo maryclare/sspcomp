@@ -15,11 +15,19 @@ coord.desc.lin <- function(X, y, Omega.inv, sig.sq, eps = 10^(-12), max.iter = 1
         beta[j] <- 0
       } else {
         Xbeta.noj <- Xbeta - X[, j]*beta[j]
-        beta[j] <- (Omega.inv[j, j] + sum(X[, j]^2)/sig.sq)^(-1)*((sum(X[, j]*y) - sum(X[, j]*Xbeta.noj))/sig.sq - sum(Omega.inv[j, -j]*beta[-j]))
+        if (is.matrix(Omega.inv)) {
+          beta[j] <- (Omega.inv[j, j] + sum(X[, j]^2)/sig.sq)^(-1)*((sum(X[, j]*y) - sum(X[, j]*Xbeta.noj))/sig.sq - sum(Omega.inv[j, -j]*beta[-j]))
+        } else if (is.vector(Omega.inv)) {
+          beta[j] <- (Omega.inv[j] + sum(X[, j]^2)/sig.sq)^(-1)*((sum(X[, j]*y) - sum(X[, j]*Xbeta.noj))/sig.sq)
+        }
         Xbeta <- Xbeta.noj + X[, j]*beta[j]
       }
     }
-    objs[i] <- (sum((y - Xbeta)^2)/sig.sq + crossprod(beta, crossprod(Omega.inv, beta)))/length(y)
+    if (is.matrix(Omega.inv)) {
+      objs[i] <- (sum((y - Xbeta)^2)/sig.sq + crossprod(beta, crossprod(Omega.inv, beta)))/length(y)
+    } else {
+      objs[i] <- (sum((y - Xbeta)^2)/sig.sq + sum(beta^2*Omega.inv))/length(y)
+    }
     if (print.iter) {
       cat("  i = ", i, "\n")
       cat("obj = ", objs[i], "\n")
@@ -33,7 +41,7 @@ coord.desc.lin <- function(X, y, Omega.inv, sig.sq, eps = 10^(-12), max.iter = 1
   return(list("beta" = beta, "objs" = objs[1:i]))
 }
 
-## Test code
+# # Test code
 # n <- 10
 # p <- 5
 # X <- matrix(rnorm(p*n), nrow = n, ncol = p)
@@ -43,7 +51,12 @@ coord.desc.lin <- function(X, y, Omega.inv, sig.sq, eps = 10^(-12), max.iter = 1
 # sig.sq <- 2
 #
 # lm(y~X-1)$coef
-# coord.desc.lin(X = X, y = y, sig.sq = sig.sq, Omega.inv = 0*Omega.inv, print.iter = FALSE)$beta
+# coord.desc.lin(X = X, y = y, sig.sq = sig.sq, Omega.inv = rep(0, ncol(X)), print.iter = FALSE)$beta
 #
 # solve(crossprod(X)/sig.sq + Omega.inv)%*%crossprod(X, y)/sig.sq
 # coord.desc.lin(X = X, y = y, sig.sq = sig.sq, Omega.inv = Omega.inv, print.iter = FALSE)$beta
+#
+# Omega.inv <- diag(Omega.inv)
+# solve(crossprod(X)/sig.sq + diag(Omega.inv))%*%crossprod(X, y)/sig.sq
+# coord.desc.lin(X = X, y = y, sig.sq = sig.sq, Omega.inv = Omega.inv, print.iter = FALSE)$beta
+
