@@ -799,7 +799,6 @@ sampler <- function(X, y, Omega.half = NULL,
 
       } else {
         Covar <- t(apply(Covar, k, "c"))
-        if (print.iter) {print(solve(tcrossprod(Covar) + diag(p[k])))}
         Omega.inv[[k]] <- rWishart(1, prod(p[-k]) + p[k] + 2, solve(tcrossprod(Covar) + diag(p[k])))[, , 1]
       }
       Omega[[k]] <- ei.inv(Omega.inv[[k]])
