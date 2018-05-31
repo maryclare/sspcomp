@@ -568,21 +568,19 @@ sampler <- function(X, y, Omega.half = NULL,
           UWz.tilde <- crossprod(t(UW), z.tilde)[, 1]
           AA <- diag(exp(UWz.tilde)/(1 + exp(UWz.tilde))^2)
           AAU <- crossprod(sqrt(AA), U)
-          if (do.svd) {
-            AAX <- mat(amprod.mc(X.arr.s, sqrt(AA), 1), 1)
-            if (!diag.app) {
+          AAX <- mat(amprod.mc(X.arr.s, sqrt(AA), 1), 1)
+          if (!diag.app) {
               BB <- crossprod(AA, UW)
             }
-          }
+
 
         } else {
           AA <- diag(length(UWz.tilde))
           AAU <- U
-          if (do.svd) {
-            AAX <- mat(X.arr.s, 1)
+          AAX <- mat(X.arr.s, 1)
             if (!diag.app) {
               BB <- UW
-            }
+
           }
         }
         if (diag.app) {
