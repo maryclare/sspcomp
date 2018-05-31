@@ -448,11 +448,11 @@ sampler <- function(X, y, Omega.half = NULL,
                     print.iter = TRUE,
                     max.iter = 1000,
                     eps = 10^(-12), eps.inner = 10^(-12),
-                    diag.app = FALSE, kron.app = FALSE,
+                    diag.app = FALSE,
                     burn.in = 0, prior = "sno", c = 1, Psi.half = NULL, sig.sq = NULL, reg = "linear",
                     fix.beta = FALSE, beta.fix = rep(0, prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))),
                     rho = 0, pr.rho.a = 10, pr.rho.b = 10, tune = 0.5,
-                    from.prior = TRUE, rank = min(length(y), prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))),
+                    from.prior = FALSE, rank = min(length(y), prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))),
                     thresh = NULL, do.svd = TRUE, slice = TRUE, joint.beta = list(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))) {
 
   # Record some quantities and set up objects to save results in
@@ -834,7 +834,6 @@ sampler <- function(X, y, Omega.half = NULL,
           res.Psi[[k]][i - burn.in, , ] <- Psi[[k]]
         }
         Psi.half[[k]] <- sym.sq.root(Psi[[k]])
-        Psi.half.inv[[k]] <- sym.sq.root(Psi.inv[[k]])
       }
 
       if (prior == "sno") {
