@@ -527,6 +527,7 @@ sampler <- function(X, y, Omega.half = NULL,
   res.B <- array(dim = c(num.samp, prod(p)))
   res.S <- array(dim = c(num.samp, prod(p)))
   res.theta <- numeric(num.samp)
+  res.ome <- array(dim = c(num.samp, n))
   res.eta <- numeric(num.samp)
   res.gamma <- array(dim = c(num.samp, q))
   res.D <- array(dim = c(num.samp, prod(p)))
@@ -905,16 +906,21 @@ sampler <- function(X, y, Omega.half = NULL,
   res.list <- list("Bs" = res.B, "gammas" = res.gamma, "etas" = res.eta,
                    "Ss" = res.S)
   if (slice) {
-    res.list <- c(res.list, "thetas" = res.theta)
+    res.list[["thetas"]] <- res.theta
+  } else {
+    res.list[["omes"]] <- res.ome
   }
   if (prior == "spb") {
-    res.list <- c(res.list, "Ds" = res.D)
+    res.list[["Ds"]] <- res.D
   }
   if (max(null.Omega.half) == 1) {
-    res.list <- c(res.list, "Omegas" = res.Omega, "Sigmas" = res.Sigma, "rhos" = res.rho)
+    res.list[["Omegas"]] <- res.Omega
+    res.list[["Sigmas"]] <- res.Sigma
+    res.list[["rhos"]] <- res.rho
   }
   if (max(null.Omega.half) == 1 & prior == "spn") {
-    res.list <- c(res.list, "Psis" = res.Psi, "rho.psis" = res.rho.psi)
+    res.list[["Psis"]] <- res.Psi
+    res.list[["rho.psis"]] <- res.rho.psi
   }
 
   return(res.list)
