@@ -431,7 +431,7 @@ sampler <- function(X, y, Omega.half = NULL,
                     num.samp = 100,
                     print.iter = TRUE,
                     max.iter = 1000,
-                    eps = 10^(-12),
+                    eps = 10^(-12), eps.inner = 10^(-12),
                     diag.app = FALSE, kron.app = FALSE,
                     burn.in = 0, prior = "sno", c = 1, Psi.half = NULL, sig.sq = NULL, reg = "linear",
                     fix.beta = FALSE, beta.fix = rep(0, prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))),
@@ -549,12 +549,12 @@ sampler <- function(X, y, Omega.half = NULL,
     if (reg == "logit") {
      if (print.iter) {cat("Get Mode\n")}
       z.tilde <- coord.desc.logit(y = y, X = UW, Omega.inv = penC,
-                            print.iter = FALSE, max.iter = max.iter, eps = eps,
+                            print.iter = FALSE, max.iter = max.iter, eps = eps, eps.inner = eps.inner,
                             start.beta = rep(0, ncol(UW)))$beta
     } else if (reg == "linear") {
       if (print.iter) {cat("Get Mode\n")}
         z.tilde <- coord.desc.lin(y = y, X = UW, sig.sq = sig.sq, Omega.inv = penC,
-                                  print.iter = FALSE, max.iter = max.iter, eps = eps,
+                                  print.iter = FALSE, max.iter = max.iter, eps = eps, eps.inner = eps.inner,
                                   start.beta = rep(0, ncol(UW)))$beta
     }
    }
