@@ -1,4 +1,20 @@
 #' @export
+samp.beta <- function(XtX, Xty, Omega.inv, sig.sq) {
+
+  V.inv <- XtX/sig.sq + Omega.inv
+  V.inv.eig <- eigen(V.inv/2 + Matrix::t(V.inv)/2)
+  V.rt <- Matrix::tcrossprod(Matrix::tcrossprod(V.inv.eig$vectors,
+                                diag(sqrt(ifelse(1/V.inv.eig$values > 0, 1/V.inv.eig$values, 0)), nrow = length(V.inv.eig$values), ncol = length(V.inv.eig$values))),
+                     V.inv.eig$vectors)
+  V <- Matrix::tcrossprod(Matrix::tcrossprod(V.inv.eig$vectors,
+                             diag(ifelse(1/V.inv.eig$values > 0, 1/V.inv.eig$values, 0), nrow = length(V.inv.eig$values), ncol = length(V.inv.eig$values))),
+                  V.inv.eig$vectors)
+  m <- Matrix::crossprod(V, Xty/sig.sq)
+  return(m + Matrix::crossprod(V.rt, rnorm(length(Xty))))
+}
+
+
+#' @export
 make.ar.mat <- function(p, rho, inv) {
   if (inv) {
     ARMat <- diag(p)
@@ -437,7 +453,7 @@ sampler <- function(X, y, Omega.half = NULL,
                     fix.beta = FALSE, beta.fix = rep(0, prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))),
                     rho = 0, pr.rho.a = 10, pr.rho.b = 10, tune = 0.5,
                     from.prior = TRUE, rank = min(length(y), prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))),
-                    thresh = NULL, do.svd = TRUE) {
+                    thresh = NULL, do.svd = TRUE, slice = TRUE, joint.beta = list(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))) {
 
   # Record some quantities and set up objects to save results in
   rank <- rank
@@ -525,7 +541,20 @@ sampler <- function(X, y, Omega.half = NULL,
   B <- array(beta, dim = p)
   Z <- array(0, dim = p)
   R <- array(1, dim = p)
-  theta <- pi
+  if (slice) {
+    theta <- pi
+  } else {
+    if (reg == "logit" | reg == "nb") {
+      ome <- rep(1, n)
+      omeD <- Matrix(0, nrow = n, ncol = n, sparse = TRUE)
+      diag(omeD) <- ome
+      if (reg == "logit") {
+        offset <- rep(1/2, n)
+      } else {
+        offset <- rep(0, n)
+      }
+    }
+  }
   eta <- pi
 
   X.arr.s <- X.arr
@@ -541,99 +570,164 @@ sampler <- function(X, y, Omega.half = NULL,
   for (i in 1:(num.samp + burn.in)) {
     if (print.iter) {cat("i=", i, "\n")}
 
-    # Set mean for proposal distribution
-   if (from.prior) {
-     z.tilde <- rep(0, ncol(UW))
-   } else if ((i == 1 & prior == "sno" & max(null.Omega.half[-1]) == 0 & (!null.rho & !null.Omega.half[1]) & reg == "linear") |
-              (i >= 1 & (prior != "sno" | max(null.Omega.half[-1]) != 0 | (null.rho | null.Omega.half[1]) | reg != "linear"))) {
-    if (reg == "logit") {
-     if (print.iter) {cat("Get Mode\n")}
-      z.tilde <- coord.desc.logit(y = y, X = UW, Omega.inv = penC,
-                            print.iter = FALSE, max.iter = max.iter, eps = eps, eps.inner = eps.inner,
-                            start.beta = rep(0, ncol(UW)))$beta
-    } else if (reg == "linear") {
-      if (print.iter) {cat("Get Mode\n")}
-        z.tilde <- coord.desc.lin(y = y, X = UW, sig.sq = sig.sq, Omega.inv = penC,
-                                  print.iter = FALSE, max.iter = max.iter, eps = eps, eps.inner = eps.inner,
-                                  start.beta = rep(0, ncol(UW)))$beta
-    }
-   }
-    if (from.prior) {
-      V.half <- c(rep(10^(12), q), rep(1, length(z.tilde) - q))
-      V.inv <- 1/V.half^2
-    } else {
-        if  (print.iter) {cat("Get Pieces for Covariance Matrix\n")}
-        if (reg == "logit") {
+    if (!fix.beta) {
+      if (print.iter) {cat("Sample Beta\n")}
+      if (slice) {
 
-          UWz.tilde <- crossprod(t(UW), z.tilde)[, 1]
-          AA <- diag(exp(UWz.tilde)/(1 + exp(UWz.tilde))^2)
-          AAU <- crossprod(sqrt(AA), U)
-          if (do.svd) {
-            AAX <- mat(amprod.mc(X.arr.s, sqrt(AA), 1), 1)
-            if (!diag.app) {
-              BB <- crossprod(AA, UW)
-            }
-          }
-
-        } else {
-          AA <- diag(length(UWz.tilde))
-          AAU <- U
-          if (do.svd) {
-            AAX <- mat(X.arr.s, 1)
-            if (!diag.app) {
-              BB <- UW
-            }
+        # Set mean for proposal distribution
+        if (from.prior) {
+          z.tilde <- rep(0, ncol(UW))
+        } else if ((i == 1 & prior == "sno" & max(null.Omega.half[-1]) == 0 & (!null.rho & !null.Omega.half[1]) & reg == "linear") |
+                   (i >= 1 & (prior != "sno" | max(null.Omega.half[-1]) != 0 | (null.rho | null.Omega.half[1]) | reg != "linear"))) {
+          if (reg == "logit") {
+            if (print.iter) {cat("Get Mode\n")}
+            z.tilde <- coord.desc.logit(y = y, X = UW, Omega.inv = penC,
+                                        print.iter = FALSE, max.iter = max.iter, eps = eps, eps.inner = eps.inner,
+                                        start.beta = rep(0, ncol(UW)))$beta
+          } else if (reg == "linear") {
+            if (print.iter) {cat("Get Mode\n")}
+            z.tilde <- coord.desc.lin(y = y, X = UW, sig.sq = sig.sq, Omega.inv = penC,
+                                      print.iter = FALSE, max.iter = max.iter, eps = eps, eps.inner = eps.inner,
+                                      start.beta = rep(0, ncol(UW)))$beta
           }
         }
-        if (diag.app) {
-          if (do.svd) {
-            if (n < prod(p)) {
+        if (from.prior) {
+          V.half <- c(rep(10^(12), q), rep(1, length(z.tilde) - q))
+          V.inv <- 1/V.half^2
+        } else {
+          if  (print.iter) {cat("Get Pieces for Covariance Matrix\n")}
+          if (reg == "logit") {
+
+            UWz.tilde <- crossprod(t(UW), z.tilde)[, 1]
+            AA <- diag(exp(UWz.tilde)/(1 + exp(UWz.tilde))^2)
+            AAU <- crossprod(sqrt(AA), U)
+            if (do.svd) {
+              AAX <- mat(amprod.mc(X.arr.s, sqrt(AA), 1), 1)
+              if (!diag.app) {
+                BB <- crossprod(AA, UW)
+              }
+            }
+
+          } else {
+            AA <- diag(length(UWz.tilde))
+            AAU <- U
+            if (do.svd) {
+              AAX <- mat(X.arr.s, 1)
+              if (!diag.app) {
+                BB <- UW
+              }
+            }
+          }
+          if (diag.app) {
+            if (do.svd) {
+              if (n < prod(p)) {
 
                 svd.A <- svd(AAX)
                 R.A <- svd.A$v
                 d.A <- svd.A$d
                 V.half <- sqrt(c(diag(solve(crossprod(AAU))), rep(1, prod(p)) - apply(R.A, 1, function(x) {sum(x^2*(d.A^2/(1 + d.A^2)))})))
 
-                } else {
-                  V.half <- sqrt(c(diag(solve(crossprod(AAU))), diag(solve(diag(prod(p)) + crossprod(AAX)))))
-                }
+              } else {
+                V.half <- sqrt(c(diag(solve(crossprod(AAU))), diag(solve(diag(prod(p)) + crossprod(AAX)))))
+              }
+            } else {
+              V.half <- sqrt(c(diag(solve(crossprod(AAU))), rep(1, prod(p))))
+            }
+
+            V.inv <- 1/V.half^2
+
           } else {
-            V.half <- sqrt(c(diag(solve(crossprod(AAU))), rep(1, prod(p))))
+            if (print.iter) {cat("Get Covariance Matrix\n")}
+            UWtBB <- crossprod(UW, BB)
+            if (rank < length(penC)) { # This doesn't seem to help
+              V.inv <- rank.reduce(UWtBB + diag(penC), rank = rank)
+            } else {
+              V.inv <- UWtBB + diag(penC)
+            }
+
+            if (!null.thresh) {
+              cat("Threshold\n")
+              V.inv[lower.tri(V.inv, diag = FALSE)] <- V.inv[lower.tri(V.inv, diag = FALSE)]*(abs(V.inv[lower.tri(V.inv, diag = FALSE)]) > thresh)
+              V.inv[upper.tri(V.inv, diag = FALSE)] <- V.inv[upper.tri(V.inv, diag = FALSE)]*(abs(V.inv[upper.tri(V.inv, diag = FALSE)]) > thresh)
+              V.inv <- as(V.inv, "dpoMatrix")
+              V.half <- Matrix::chol(Matrix::solve(V.inv))
+            } else {
+              V.half <- sym.sq.root.inv(V.inv)
+            }
+
           }
-
-        V.inv <- 1/V.half^2
-
-      } else {
-        if (print.iter) {cat("Get Covariance Matrix\n")}
-        UWtBB <- crossprod(UW, BB)
-        if (rank < length(penC)) { # This doesn't seem to help
-          V.inv <- rank.reduce(UWtBB + diag(penC), rank = rank)
-        } else {
-          V.inv <- UWtBB + diag(penC)
         }
 
-        if (!null.thresh) {
-          cat("Threshold\n")
-          V.inv[lower.tri(V.inv, diag = FALSE)] <- V.inv[lower.tri(V.inv, diag = FALSE)]*(abs(V.inv[lower.tri(V.inv, diag = FALSE)]) > thresh)
-          V.inv[upper.tri(V.inv, diag = FALSE)] <- V.inv[upper.tri(V.inv, diag = FALSE)]*(abs(V.inv[upper.tri(V.inv, diag = FALSE)]) > thresh)
-          V.inv <- as(V.inv, "dpoMatrix")
-          V.half <- Matrix::chol(Matrix::solve(V.inv))
+        sample <- sample.beta.theta(X = W, U = U, y = y, V.half = V.half, beta = c(gamma, c(Z)),
+                                    theta = theta, beta.tilde = z.tilde,
+                                    Omega.inv = lapply(p, function(x) {diag(x)}), V.inv = V.inv,
+                                    sig.sq = sig.sq, reg = reg)
+        sample.beta <- sample$beta
+        theta <- sample$theta
+      } else {
+
+        if (reg == "logit") {
+          ome <- BayesLogit::rpg(n, offset*2, crossprod(t(UW), c(gamma, c(Z))))
+          diag(omeD) <- ome
+        }
+        if (length(joint.beta) == 1) {
+          if (reg == "logit") {
+
+            UWtUW <- Matrix::crossprod(UW, Matrix::crossprod(omeD, UW))
+
+          } else if ((i == 1 & reg == "linear" & max(null.Omega.half) == 0 & prior == "sno") |
+                !(reg == "linear") | !(max(null.Omega.half) == 0) | !(prior == "sno")) {
+              UWtUW <- crossprod(UW)
+
+          }
+          UWty <- crossprod(UW, y - offset)
+
+          if (reg == "linear") {
+            sample.beta <- samp.beta(XtX = UWtUW, Xty = UWty,
+                                     Omega.inv = diag(penC), sig.sq = sig.sq)
+          } else {
+            sample.beta <- samp.beta(XtX = UWtUW, Xty = UWty,
+                                     Omega.inv = diag(penC), sig.sq = 1)
+
+          }
+
         } else {
-            V.half <- sym.sq.root.inv(V.inv)
+          sample.beta <- c(gamma, c(Z))
+          for (block in joint.beta) {
+
+            not.block <- (1:ncol(UW))[!1:ncol(UW) %in% block]
+            if (reg == "logit") {
+
+              UWtUW <- Matrix::crossprod(UW[, block], Matrix::crossprod(omeD, UW[, block]))
+
+              UWtNUWZ <- Matrix::crossprod(Matrix::t(Matrix::crossprod(UW[, block],
+                                                                       Matrix::crossprod(omeD, UW[, not.block]))), sample.beta[ not.block])
+
+            } else if ((i == 1 & reg == "linear" & max(null.Omega.half) == 0 & prior == "sno") |
+                       !(reg == "linear") | !(max(null.Omega.half) == 0) | !(prior == "sno")) {
+              UWtUW <- crossprod(UW[, block])
+              UWtNUWZ <- crossprod(UW[, block], crossprod(t(UW[, not.block]), sample.beta[not.block]))
+
+            }
+
+
+          UWty <- crossprod(UW[, block], y - offset)
+
+          if (reg == "linear") {
+            sample.beta[block] <- samp.beta(XtX = UWtUW, Xty = UWty - UWtNUWZ,
+                                            Omega.inv = diag(penC[block]), sig.sq = sig.sq)
+          } else {
+            sample.beta[block] <- samp.beta(XtX = UWtUW, Xty = UWty - UWtNUWZ,
+                                            Omega.inv = diag(penC[block]), sig.sq = 1)
+          }
+          }
+
         }
 
       }
-    }
-    if (!fix.beta) {
-      if (print.iter) {cat("Sample Beta\n")}
-      sample <- sample.beta.theta(X = W, U = U, y = y, V.half = V.half, beta = c(gamma, c(Z)),
-                                  theta = theta, beta.tilde = z.tilde,
-                                  Omega.inv = lapply(p, function(x) {diag(x)}), V.inv = V.inv,
-                                  sig.sq = sig.sq, reg = reg)
-      gamma <- sample$beta[1:q]
-      Z <- array(sample$beta[(q + 1):length(sample$beta)], dim = p)
+      gamma <- sample.beta[1:q]
+      Z <- array(sample.beta[(q + 1):length(sample.beta)], dim = p)
       B <- S*atrans.mc(Z, Omega.half)
-      theta <- sample$theta
     }
 
     if (prior == "sng" | prior == "spn" | prior == "spb") {
@@ -673,7 +767,8 @@ sampler <- function(X, y, Omega.half = NULL,
         if (print.iter) {cat("Sample R\n")}
 
         sample <- sample.r.eta(r = c(R), Omega.inv = Omega.inv, beta = c(B), deltas = deltas, eta = eta,
-                               r.tilde = r.tilde, V.r.inv = V.r.inv, V.r.half = V.r.half, c = c, prior = prior)
+                               r.tilde = r.tilde, V.r.inv = V.r.inv, V.r.half =
+                                 V.r.half, c = c, prior = prior)
       }
       r <- sample$r
       R <- array(r, p)
@@ -789,7 +884,9 @@ sampler <- function(X, y, Omega.half = NULL,
 
       res.B[i - burn.in, ] <- c(B)
       res.gamma[i - burn.in, ] <- gamma
-      res.theta[i - burn.in] <- theta
+      if (slice) {
+        res.theta[i - burn.in] <- theta
+      }
       res.S[i - burn.in, ] <- c(S)
       res.eta[i - burn.in] <- eta
       # if (prior == "sng" & null.c) {
@@ -807,37 +904,22 @@ sampler <- function(X, y, Omega.half = NULL,
       }
     }
   }
-  if (max(null.Omega.half) == 1) {
-    if (prior =="sno") {
-      res.list <- list("Bs" = res.B, "thetas" = res.theta, "gammas" = res.gamma, "Omegas" = res.Omega,
-                       "Sigmas" = res.Sigma,
-                       "etas" = res.eta,
-                       "Ss" = res.S, "rhos" = res.rho)
-    } else if (prior == "sng") {
-      res.list <- list("Bs" = res.B, "thetas" = res.theta, "gammas" = res.gamma, "Omegas" = res.Omega,
-                       "Sigmas" = res.Sigma, "etas" = res.eta,
-                       "Ss" = res.S, "rhos" = res.rho)
 
-    } else if (prior == "spb") {
-      res.list <- list("Bs" = res.B, "thetas" = res.theta, "gammas" = res.gamma, "Omegas" = res.Omega,
-                       "Sigmas" = res.Sigma, "etas" = res.eta, "Ds" = res.D,
-                       "Ss" = res.S, "rhos" = res.rho)
-
-    } else {
-      res.list <- list("Bs" = res.B, "thetas" = res.theta, "gammas" = res.gamma, "Omegas" = res.Omega,
-                       "Sigmas" = res.Sigma, "etas" = res.eta,
-                       "Ss" = res.S, "Psis" = res.Psi, "rhos" = res.rho,
-                       "rho.psis" = res.rho.psi)
-    }
-  } else {
-    if (prior != "spb") {
-      res.list <- list("Bs" = res.B, "thetas" = res.theta, "gammas" = res.gamma, "etas" = res.eta,
-                       "Ss" = res.S)
-    } else {
-      res.list <- list("Bs" = res.B, "thetas" = res.theta, "gammas" = res.gamma, "etas" = res.eta,
-                       "Ss" = res.S, "Ds" = res.D)
-    }
+  res.list <- list("Bs" = res.B, "gammas" = res.gamma, "etas" = res.eta,
+                   "Ss" = res.S)
+  if (slice) {
+    res.list <- c(res.list, "thetas" = res.theta)
   }
+  if (prior == "spb") {
+    res.list <- c(res.list, "Ds" = res.D)
+  }
+  if (max(null.Omega.half) == 1) {
+    res.list <- c(res.list, "Omegas" = res.Omega, "Sigmas" = res.Sigma, "rhos" = res.rho)
+  }
+  if (max(null.Omega.half) == 1 & prior == "spn") {
+    res.list <- c(res.list, "Psis" = res.Psi, "rho.psis" = res.rho.psi)
+  }
+
   return(res.list)
 }
 
