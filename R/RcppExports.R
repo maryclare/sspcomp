@@ -9,35 +9,3 @@ objMat <- function(beta, Xbeta, y, OmegaInv) {
     .Call(`_sspcomp_objMat`, beta, Xbeta, y, OmegaInv)
 }
 
-gradVec <- function(X, y, OmegaInv, beta, Xbeta, j) {
-    .Call(`_sspcomp_gradVec`, X, y, OmegaInv, beta, Xbeta, j)
-}
-
-gradMat <- function(X, y, OmegaInv, beta, Xbeta, j) {
-    .Call(`_sspcomp_gradMat`, X, y, OmegaInv, beta, Xbeta, j)
-}
-
-hessVec <- function(X, OmegaInv, Xbeta, j) {
-    .Call(`_sspcomp_hessVec`, X, OmegaInv, Xbeta, j)
-}
-
-hessMat <- function(X, OmegaInv, Xbeta, j) {
-    .Call(`_sspcomp_hessMat`, X, OmegaInv, Xbeta, j)
-}
-
-solveLogitVec <- function(y, beta, X, OmegaInv, Xbeta, j, epsInner) {
-    .Call(`_sspcomp_solveLogitVec`, y, beta, X, OmegaInv, Xbeta, j, epsInner)
-}
-
-solveLogitMat <- function(y, beta, X, OmegaInv, Xbeta, j, epsInner) {
-    .Call(`_sspcomp_solveLogitMat`, y, beta, X, OmegaInv, Xbeta, j, epsInner)
-}
-
-coordDescLogitVec <- function(y, X, OmegaInv, maxit, betaStart, eps, epsInner) {
-    .Call(`_sspcomp_coordDescLogitVec`, y, X, OmegaInv, maxit, betaStart, eps, epsInner)
-}
-
-coordDescLogitMat <- function(y, X, OmegaInv, maxit, betaStart, eps, epsInner) {
-    .Call(`_sspcomp_coordDescLogitMat`, y, X, OmegaInv, maxit, betaStart, eps, epsInner)
-}
-
