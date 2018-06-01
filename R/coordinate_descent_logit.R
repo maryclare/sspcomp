@@ -1,11 +1,11 @@
-# Pars for testing
-# rm(list = ls())
-n <- 100
-p <- 10
-X <- matrix(rnorm(n*p), nrow = n, ncol = p)
-beta <- rnorm(p)
-Xbeta <- crossprod(t(X), beta)
-y <- rbinom(n, 1, exp(Xbeta)/(1 + exp(Xbeta)))
+# # Pars for testing
+# # rm(list = ls())
+# n <- 100
+# p <- 10
+# X <- matrix(rnorm(n*p), nrow = n, ncol = p)
+# beta <- rnorm(p)
+# Xbeta <- crossprod(t(X), beta)
+# y <- rbinom(n, 1, exp(Xbeta)/(1 + exp(Xbeta)))
 
 grad <- function(X, y, Omega.inv, beta, Xbeta = crossprod(t(X), beta), j) {
   not.j <- (1:ncol(X))[!1:ncol(X) %in% j]
@@ -137,16 +137,16 @@ coord.desc.logit <- function(X, y, Omega.inv, eps = 10^(-12), max.iter = 1000, p
   return(list("beta" = beta, "objs" = objs[1:i]))
 }
 
-Omega.inv <- rWishart(1, p + 2, diag(p))[, , 1]
-# Omega.inv <- Omega.inv*0
-Omega.inv <- diag(Omega.inv)
-# Omega.inv <- rep(0, p)
-joint.beta <- vector("list", length = 2)
-joint.beta[[1]] <- 1:5; joint.beta[[2]] <- 6:10
-cd.nr <- coord.desc.logit(X = X, y = y, Omega.inv = Omega.inv, joint.beta = joint.beta)
-cd.bi <- coord.desc.logit(X = X, y = y, Omega.inv = Omega.inv, nr = FALSE)
-plot(cd.nr$objs)
-plot(cd.bi$objs)
-print(cbind(cd.nr$beta,
-      cd.bi$beta, glm(y~X-1, family = binomial(link = "logit"))$coef))
+# Omega.inv <- rWishart(1, p + 2, diag(p))[, , 1]
+# # Omega.inv <- Omega.inv*0
+# Omega.inv <- diag(Omega.inv)
+# # Omega.inv <- rep(0, p)
+# joint.beta <- vector("list", length = 2)
+# joint.beta[[1]] <- 1:5; joint.beta[[2]] <- 6:10
+# cd.nr <- coord.desc.logit(X = X, y = y, Omega.inv = Omega.inv, joint.beta = joint.beta)
+# cd.bi <- coord.desc.logit(X = X, y = y, Omega.inv = Omega.inv, nr = FALSE)
+# plot(cd.nr$objs)
+# plot(cd.bi$objs)
+# print(cbind(cd.nr$beta,
+#       cd.bi$beta, glm(y~X-1, family = binomial(link = "logit"))$coef))
 
