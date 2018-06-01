@@ -247,14 +247,6 @@ sym.sq.root <- function(A) {
 }
 
 #' @export
-rank.reduce <- function(A, rank) {
-  A.eig <- eigen((A + t(A))/2)
-  rs <- 1:length(A.eig$values)
-  crossprod(t(A.eig$vectors), tcrossprod(diag(ifelse(A.eig$values > 0 & rs <= rank, A.eig$values, 0),
-                                              nrow = nrow(A), ncol = ncol(A)), A.eig$vectors))
-}
-
-#' @export
 sym.sq.root.inv <- function(A) {
   A.eig <- eigen(A)
   crossprod(t(A.eig$vectors), tcrossprod(diag(sqrt(ifelse(A.eig$values > 0, 1/A.eig$values, 0)),
@@ -473,12 +465,11 @@ sampler <- function(X, y, Omega.half = NULL,
                     burn.in = 0, prior = "sno", c = 1, Psi.half = NULL, sig.sq = NULL, reg = "linear",
                     fix.beta = FALSE, beta.fix = rep(0, prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))),
                     rho = 0, pr.rho.a = 10, pr.rho.b = 10, tune = 0.5,
-                    from.prior = FALSE, rank = min(length(y), prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))),
+                    from.prior = FALSE,
                     do.svd = TRUE, slice = TRUE, joint.beta = list(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))),
                     str = "uns") {
 
   # Record some quantities and set up objects to save results in
-  rank <- rank
   n <- length(y)
   p <- dim(X)[-1]
   if (!fix.beta) {
@@ -637,9 +628,9 @@ sampler <- function(X, y, Omega.half = NULL,
             AA <- diag(length(UWz.tilde))
             AAU <- U
             if (!diag.app) {
+              BB <- UW
               if (do.svd) {
               AAX <- mat(X.arr.s, 1)
-              BB <- UW
               }
             }
           }
@@ -664,16 +655,10 @@ sampler <- function(X, y, Omega.half = NULL,
           } else {
             if (print.iter) {cat("Get Covariance Matrix\n")}
             UWtBB <- crossprod(UW, BB)
-            if (rank < length(penC)) { # This doesn't seem to help
-              V.inv <- rank.reduce(UWtBB + diag(penC), rank = rank)
-            } else {
-              V.inv <- UWtBB + diag(penC)
-            }
-
-
+            V.inv <- UWtBB + diag(penC)
             V.half <- sym.sq.root.inv(V.inv)
-
           }
+
         }
 
         sample <- sample.beta.theta(X = W, U = U, y = y, V.half = V.half, beta = c(gamma, c(Z)),
