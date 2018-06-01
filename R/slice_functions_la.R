@@ -474,7 +474,7 @@ sampler <- function(X, y, Omega.half = NULL,
                     fix.beta = FALSE, beta.fix = rep(0, prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))),
                     rho = 0, pr.rho.a = 10, pr.rho.b = 10, tune = 0.5,
                     from.prior = FALSE, rank = min(length(y), prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))),
-                    thresh = NULL, do.svd = TRUE, slice = TRUE, joint.beta = list(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))),
+                    do.svd = TRUE, slice = TRUE, joint.beta = list(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))),
                     str = "uns") {
 
   # Record some quantities and set up objects to save results in
@@ -492,7 +492,6 @@ sampler <- function(X, y, Omega.half = NULL,
 
 
   # Set starting values
-  null.thresh <- is.null(thresh)
   null.rho <- is.null(rho)
   if (null.rho) {
     rho <- 0
@@ -671,15 +670,8 @@ sampler <- function(X, y, Omega.half = NULL,
               V.inv <- UWtBB + diag(penC)
             }
 
-            if (!null.thresh) {
-              cat("Threshold\n")
-              V.inv[lower.tri(V.inv, diag = FALSE)] <- V.inv[lower.tri(V.inv, diag = FALSE)]*(abs(V.inv[lower.tri(V.inv, diag = FALSE)]) > thresh)
-              V.inv[upper.tri(V.inv, diag = FALSE)] <- V.inv[upper.tri(V.inv, diag = FALSE)]*(abs(V.inv[upper.tri(V.inv, diag = FALSE)]) > thresh)
-              V.inv <- as(V.inv, "dpoMatrix")
-              V.half <- Matrix::chol(Matrix::solve(V.inv))
-            } else {
-              V.half <- sym.sq.root.inv(V.inv)
-            }
+
+            V.half <- sym.sq.root.inv(V.inv)
 
           }
         }
