@@ -109,9 +109,11 @@ coord.desc.logit <- function(X, y, Omega.inv, eps = 10^(-12), max.iter = 1000, p
             # print(grad(X = X, y = y, Omega.inv = Omega.inv, beta = beta, Xbeta = Xbeta, j = j))
             # print(hess(X = X, Omega.inv = Omega.inv, beta = beta, Xbeta = Xbeta, j = j))
             # print(beta.old[j])
-            hess.eig <- eigen(hess(X = X, Omega.inv = Omega.inv, beta = beta, Xbeta = Xbeta, j = j))
-            hess.inv <- crossprod(t(hess.eig$vectors), crossprod(diag(ifelse(hess.eig$values > 0, 1/hess.eig$values, 0), nrow = length(hess.eig$values), ncol = length(hess.eig$values)),
-                                                                 t(hess.eig$vectors)))
+            hess <- hess(X = X, Omega.inv = Omega.inv, beta = beta, Xbeta = Xbeta, j = j)
+            hess.inv <- try(solve(hess), silent = TRUE)
+            if (grepl("Error", hess.inv[1])) {
+              hess.inv <- diag(nrow(hess))
+            }
             beta[j] <- beta[j] - crossprod(hess.inv,
                                            grad(X = X, y = y, Omega.inv = Omega.inv, beta = beta, Xbeta = Xbeta, j = j))
             # print(beta[j])
