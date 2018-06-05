@@ -121,6 +121,11 @@ coord.desc.logit <- function(X, y, Omega.inv, eps = 10^(-12), max.iter = 1000, p
               diff <- mean(abs(beta[j] - beta.old[j]))
             }
 
+            if (is.na(diff)) {
+              beta[j] <- 0
+              diff <- 0
+            }
+
             # print(beta[j])
             # print(diff)
 
