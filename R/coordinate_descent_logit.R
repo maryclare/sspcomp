@@ -111,14 +111,19 @@ coord.desc.logit <- function(X, y, Omega.inv, eps = 10^(-12), max.iter = 1000, p
             # print(beta.old[j])
             hess <- hess(X = X, Omega.inv = Omega.inv, beta = beta, Xbeta = Xbeta, j = j)
             hess.inv <- try(solve(hess), silent = TRUE)
+            grad <- grad(X = X, y = y, Omega.inv = Omega.inv, beta = beta, Xbeta = Xbeta, j = j)
             if (grepl("Error", hess.inv[1])) {
-              hess.inv <- diag(nrow(hess))
+              beta[j] <- 0
+              diff <- 0
+            } else {
+              beta[j] <- beta[j] - crossprod(hess.inv,
+                                           grad)
+              diff <- mean(abs(beta[j] - beta.old[j]))
             }
-            beta[j] <- beta[j] - crossprod(hess.inv,
-                                           grad(X = X, y = y, Omega.inv = Omega.inv, beta = beta, Xbeta = Xbeta, j = j))
+
             # print(beta[j])
             # print(diff)
-            diff <- mean(abs(beta[j] - beta.old[j]))
+
             Xbeta <- Xbeta + crossprod(t(X[, j]), (beta[j] - beta.old[j]))
             beta.old <- beta
           }
