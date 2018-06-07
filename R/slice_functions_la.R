@@ -3,7 +3,7 @@ get.beta.blocks <- function(X, q, min.block.size = 25, max.block.size = Inf) {
   C <- cov2cor(cov(t(apply(X, 1, "c"))))
   C.ei <- eigen(C)
   num.per.block <- round(prod(p)*C.ei$values/sum(C.ei$values), 0)
-  if (!is.inf(max.block.size)) {
+  if (!is.infinite(max.block.size)) {
     num.per.block[num.per.block > max.block.size] <- max.block.size
   }
   num.per.block[1] <- num.per.block[1] + q
