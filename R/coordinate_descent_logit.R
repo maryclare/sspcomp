@@ -35,7 +35,7 @@ hess <- function(X, Omega.inv, beta, Xbeta = crossprod(t(X), beta), j) {
 #' @export
 coord.desc.logit <- function(X, y, Omega.inv, eps = 10^(-12), max.iter = 1000, print.iter = TRUE,
                              start.beta = rep(0, ncol(X)), nr = TRUE,
-                             joint.beta = as.list(1:ncol(X))) {
+                             joint.beta = as.list(1:ncol(X)), max.inner = 1000) {
 
   maxs <- colSums(abs(X))
   zero.ind <- which(maxs == 0)
@@ -104,7 +104,8 @@ coord.desc.logit <- function(X, y, Omega.inv, eps = 10^(-12), max.iter = 1000, p
 
           # Newton Raphson
           diff <- Inf
-          while(abs(diff) > eps) {
+          inner <- 1
+          while(abs(diff) > eps & inner <= max.inner) {
             # print("Grad, Hess")
             # print(grad(X = X, y = y, Omega.inv = Omega.inv, beta = beta, Xbeta = Xbeta, j = j))
             # print(hess(X = X, Omega.inv = Omega.inv, beta = beta, Xbeta = Xbeta, j = j))
@@ -131,6 +132,9 @@ coord.desc.logit <- function(X, y, Omega.inv, eps = 10^(-12), max.iter = 1000, p
 
             Xbeta <- Xbeta + crossprod(t(X[, j]), (beta[j] - beta.old[j]))
             beta.old <- beta
+
+            inner <- inner + 1
+
           }
         }
     }
