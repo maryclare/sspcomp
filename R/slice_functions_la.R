@@ -519,15 +519,19 @@ sampler <- function(X, y, Omega.half = NULL,
       } else {
         Omega.half[[i]] <- sym.sq.root(make.ar.mat(p = p[i], rho = rho, inv = FALSE))
       }
-      res.Omega[[i]] <- array(dim = c(num.samp, p[i], p[i]))
-      res.Sigma[[i]] <- array(dim = c(num.samp, p[i], p[i]))
+      if (i > 1) {
+        res.Omega[[i]] <- array(dim = c(num.samp, p[i], p[i]))
+        res.Sigma[[i]] <- array(dim = c(num.samp, p[i], p[i]))
+      }
       if (prior == "spn") {
         if (i != 1) {
           Psi.half[[i]] <- diag(p[i])
         } else {
           Psi.half[[i]] <- sym.sq.root(make.ar.mat(p = p[i], rho = rho.psi, inv = FALSE))
         }
-        res.Psi[[i]] <- array(dim = c(num.samp, p[i], p[i]))
+        if (i > 1) {
+          res.Psi[[i]] <- array(dim = c(num.samp, p[i], p[i]))
+        }
       }
     }
   }
@@ -576,7 +580,7 @@ sampler <- function(X, y, Omega.half = NULL,
   } else {
     if (reg == "logit" | reg == "nb") {
       ome <- rep(1, n)
-      omeD <- Matrix(0, nrow = n, ncol = n, sparse = TRUE)
+      omeD <- Matrix::Matrix(0, nrow = n, ncol = n, sparse = TRUE)
       diag(omeD) <- ome
       if (reg == "logit") {
         offset <- rep(1/2, n)
@@ -850,7 +854,7 @@ sampler <- function(X, y, Omega.half = NULL,
                                          pr.df = pr.Omega.df[[k]])
       }
       Omega[[k]] <- ei.inv(Omega.inv[[k]])
-      if (i > burn.in & (i - burn.in)%%thin == 0) {
+      if (i > burn.in & (i - burn.in)%%thin == 0 & k != 1) {
         res.Omega[[k]][(i - burn.in)/thin, , ] <- Omega[[k]]
       }
 
@@ -884,7 +888,7 @@ sampler <- function(X, y, Omega.half = NULL,
                                          pr.df = pr.Psi.df[[k]])
         }
         Psi[[k]] <- ei.inv(Psi.inv[[k]])
-        if (i > burn.in & (i - burn.in)%%thin == 0) {
+        if (i > burn.in & (i - burn.in)%%thin == 0 & k != 1) {
           res.Psi[[k]][(i - burn.in)/thin, , ] <- Psi[[k]]
         }
         Psi.half[[k]] <- sym.sq.root(Psi[[k]])
@@ -895,7 +899,7 @@ sampler <- function(X, y, Omega.half = NULL,
         sig.sq <- 1/rgamma(1, shape = pr.sig.sq.shape + length(resid)/2, rate = pr.sig.sq.rate + sum(resid^2)/2)
       }
 
-      if (i > burn.in & (i - burn.in)%%thin == 0) {
+      if (i > burn.in & (i - burn.in)%%thin == 0 & k != 1) {
         if (prior == "sno") {
           res.Sigma[[k]][(i - burn.in)/thin, , ] <- Omega[[k]]
         } else if (prior == "sng") {
