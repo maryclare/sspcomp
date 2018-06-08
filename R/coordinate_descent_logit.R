@@ -35,7 +35,7 @@ hess <- function(X, Omega.inv, beta, Xbeta = crossprod(t(X), beta), j) {
 #' @export
 coord.desc.logit <- function(X, y, Omega.inv, eps = 10^(-12), max.iter = 1000, print.iter = TRUE,
                              start.beta = rep(0, ncol(X)), nr = TRUE,
-                             joint.beta = as.list(1:ncol(X)), max.inner = 1000) {
+                             joint.beta = as.list(1:ncol(X)), max.inner = Inf) {
 
   maxs <- colSums(abs(X))
   zero.ind <- which(maxs == 0)
