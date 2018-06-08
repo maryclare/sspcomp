@@ -1,40 +1,53 @@
 #' @export
-get.beta.blocks <- function(X, q, min.block.size = 25, max.block.size = Inf) {
-  C <- cov2cor(cov(t(apply(X, 1, "c"))))
-  C.ei <- eigen(C)
-  num.per.block <- round(prod(p)*C.ei$values/sum(C.ei$values), 0)
-  if (!is.infinite(max.block.size)) {
-    num.per.block[num.per.block > max.block.size] <- max.block.size
-  }
-  num.per.block[1] <- num.per.block[1] + q
-  max.ei <- max(which((num.per.block) > 25))
-  num.block <- max.ei + ceiling((prod(p) - sum(num.per.block[1:max(which((num.per.block) > 25))]))/25)
-  joint.beta <- vector("list", length = num.block)
+get.beta.blocks <- function(X, q, min.block.size = 25, max.block.size = Inf, no.eig = TRUE) {
 
-  remain <- 1:(prod(p) + q)
-  for (i in 1:length(joint.beta)) {
+  p <- dim(X)[-1]
 
-    # Order variables on corresponding eigenvector
-    if (i <= max.ei) {
+  if (no.eig) {
+    ends <- seq(1, prod(p) + 1, by =nmin.block.size)
+    joint.beta <- vector("list", length = ifelse(prod(p) + 1 %in% ends, length(ends), length(ends) + 1))
 
-      order.vec <- order(abs(C.ei$vectors[i, ])) + q
-      order.vec <- order.vec[order.vec %in% remain]
-
-      if (i == 1) {
-        block.beta <- (order.vec)[1:(num.per.block[1] - q)]
-        block.beta <- c(1:q, block.beta)
-      } else {
-        block.beta <- order.vec[1:num.per.block[i]]
-      }
-    } else {
-      if (length(remain) > 25) {
-        block.beta <- sample(remain, 25, replace = FALSE)
-      } else {block.beta <- remain}
+    for (i in 1:(length(joint.beta) - 1)) {
+      joint.beta[[i]] <- ends[i]:(ends[i + 1] - 1)
     }
+    joint.beta[[length(joint.beta)]] <- ends[length(ends)]:(prod(p) + 1)
+  } else {
+    C <- cov2cor(cov(t(apply(X, 1, "c"))))
+    C.ei <- eigen(C)
+    num.per.block <- round(prod(p)*C.ei$values/sum(C.ei$values), 0)
+    if (!is.infinite(max.block.size)) {
+      num.per.block[num.per.block > max.block.size] <- max.block.size
+    }
+    num.per.block[1] <- num.per.block[1] + q
+    max.ei <- max(which((num.per.block) > 25))
+    num.block <- max.ei + ceiling((prod(p) - sum(num.per.block[1:max(which((num.per.block) > 25))]))/25)
+    joint.beta <- vector("list", length = num.block)
 
-    remain <- remain[!remain %in% block.beta]
+    remain <- 1:(prod(p) + q)
+    for (i in 1:length(joint.beta)) {
 
-    joint.beta[[i]] <- block.beta
+      # Order variables on corresponding eigenvector
+      if (i <= max.ei) {
+
+        order.vec <- order(abs(C.ei$vectors[i, ])) + q
+        order.vec <- order.vec[order.vec %in% remain]
+
+        if (i == 1) {
+          block.beta <- (order.vec)[1:(num.per.block[1] - q)]
+          block.beta <- c(1:q, block.beta)
+        } else {
+          block.beta <- order.vec[1:num.per.block[i]]
+        }
+      } else {
+        if (length(remain) > 25) {
+          block.beta <- sample(remain, 25, replace = FALSE)
+        } else {block.beta <- remain}
+      }
+
+      remain <- remain[!remain %in% block.beta]
+
+      joint.beta[[i]] <- block.beta
+    }
   }
   return(joint.beta)
 }
