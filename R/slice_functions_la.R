@@ -4,7 +4,7 @@ get.beta.blocks <- function(X, q, min.block.size = 25, max.block.size = Inf, no.
   p <- dim(X)[-1]
 
   if (no.eig) {
-    ends <- seq(1, prod(p) + 1, by =nmin.block.size)
+    ends <- seq(1, prod(p) + 1, by = min.block.size)
     joint.beta <- vector("list", length = ifelse(prod(p) + 1 %in% ends, length(ends), length(ends) + 1))
 
     for (i in 1:(length(joint.beta) - 1)) {
