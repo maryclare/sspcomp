@@ -531,7 +531,7 @@ sampler <- function(X, y, Omega.half = NULL,
                     pr.Omega.df = lapply(dim(X)[-1], function(x) {x + 2}),
                     pr.Psi.df = lapply(dim(X)[-1], function(x) {x + 2}),
                     pr.sig.sq.shape = 3/2,
-                    pr.sig.sq.rate = 1/2, use.previous = FALSE) {
+                    pr.sig.sq.rate = 1/2, use.previous = FALSE, max.inner = 100) {
 
   # Record some quantities and set up objects to save results in
   pr.Omega.V.inv <- pr.Omega.V.inv
@@ -685,7 +685,7 @@ sampler <- function(X, y, Omega.half = NULL,
             z.tilde <- coord.desc.logit(y = y, X = UW, Omega.inv = penC,
                                         print.iter = FALSE, max.iter = max.iter, eps = eps,
                                         start.beta = z.start,
-                                        joint.beta = joint.beta)$beta
+                                        joint.beta = joint.beta, max.inner = max.inner)$beta
           } else if (reg == "linear") {
             if (print.iter) {cat("Get Mode\n")}
             z.tilde <- coord.desc.lin(y = y, X = UW, sig.sq = sig.sq, Omega.inv = penC,
@@ -1143,7 +1143,8 @@ em.est <- function(X, y, Omega.half,
 
     if (reg == "logit") {
       beta.fix <- coord.desc.logit(y = y, X = UW, Omega.inv = penC,
-                                   print.iter = FALSE, max.iter = max.iter.slice, eps = eps.slice)$beta
+                                   print.iter = FALSE, max.iter = max.iter.slice, eps = eps.slice,
+                                   max.inner = max.inner)$beta
     } else if (reg == "linear") {
       beta.fix <- coord.desc.lin(y = y, X = UW, Omega.inv = penC,
                                  print.iter = FALSE, max.iter = max.iter.slice, eps = eps.slice, sig.sq = sig.sq)$beta
