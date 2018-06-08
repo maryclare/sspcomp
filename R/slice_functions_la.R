@@ -518,7 +518,7 @@ sampler <- function(X, y, Omega.half = NULL,
                     pr.Omega.df = lapply(dim(X)[-1], function(x) {x + 2}),
                     pr.Psi.df = lapply(dim(X)[-1], function(x) {x + 2}),
                     pr.sig.sq.shape = 3/2,
-                    pr.sig.sq.rate = 1/2) {
+                    pr.sig.sq.rate = 1/2, use.previous = FALSE) {
 
   # Record some quantities and set up objects to save results in
   pr.Omega.V.inv <- pr.Omega.V.inv
@@ -659,19 +659,27 @@ sampler <- function(X, y, Omega.half = NULL,
           z.tilde <- rep(0, ncol(UW))
         } else if ((i == 1 & prior == "sno" & max(null.Omega.half[-1]) == 0 & (!null.rho & !null.Omega.half[1]) & reg == "linear" & !null.sig.sq) |
                    (i >= 1 & (prior != "sno" | max(null.Omega.half[-1]) != 0 | (null.rho | null.Omega.half[1]) | reg != "linear" | null.sig.sq))) {
+
+          if (use.previous & i > 1) {
+            z.start <- c(z.tilde[1:q], atrans.mc(B.tilde/S, Omega.half.inv))
+          } else {
+            z.start <- rep(0, ncol(UW))
+          }
+
           if (reg == "logit") {
             if (print.iter) {cat("Get Mode\n")}
 
             z.tilde <- coord.desc.logit(y = y, X = UW, Omega.inv = penC,
                                         print.iter = FALSE, max.iter = max.iter, eps = eps,
-                                        start.beta = rep(0, ncol(UW)),
+                                        start.beta = z.start,
                                         joint.beta = joint.beta)$beta
           } else if (reg == "linear") {
             if (print.iter) {cat("Get Mode\n")}
             z.tilde <- coord.desc.lin(y = y, X = UW, sig.sq = sig.sq, Omega.inv = penC,
                                       print.iter = FALSE, max.iter = max.iter, eps = eps,
-                                      start.beta = rep(0, ncol(UW)))$beta
+                                      start.beta = z.start)$beta
           }
+          B.tilde <- atrans.mc(array(z.tilde[(q + 1):length(z.tilde)], dim = p), Omega.half)*S
         }
         if (from.prior) {
           V.half <- c(rep(10^(12), q), rep(1, length(z.tilde) - q))
@@ -818,7 +826,6 @@ sampler <- function(X, y, Omega.half = NULL,
       S <- array(S, p)
       Z <- array(Z, p)
       B <- S*atrans.mc(Z, Omega.half)
-
 
     }
 
@@ -1054,7 +1061,10 @@ em.est <- function(X, y, Omega.half,
                    eps.em = 10^(-3),
                    diag.app = FALSE,
                    burn.in = 0, prior = "sno", c = 1, Psi.half = NULL, sig.sq = NULL, reg = "linear",
-                   rho = 0) {
+                   rho = 0, use.previous = FALSE,
+                   from.prior = FALSE, do.svd = TRUE, slice = TRUE, joint.beta = list(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))) {
+
+  joint.beta <- joint.beta
 
   W <- t(apply(X, 1, "c"))
 
@@ -1087,7 +1097,9 @@ em.est <- function(X, y, Omega.half,
   # Get initial values
   samples <- sampler(X = X, y = y, Omega.half = Omega.half, num.samp = num.samp[1], print.iter = FALSE,
                      max.iter = max.iter.slice, eps = eps.slice, diag.app = diag.app, burn.in = burn.in, prior = prior, c = c,
-                     U = U, Psi.half = Psi.half, sig.sq = sig.sq, reg = reg, fix.beta = FALSE, rho = rho)
+                     U = U, Psi.half = Psi.half, sig.sq = sig.sq, reg = reg, fix.beta = FALSE, rho = rho,
+                     use.previous = use.previous,
+                     from.prior = from.prior, do.svd = do.svd, slice = slice, joint.beta = joint.beta)
   post.mean <- c(colMeans(samples$gammas), colMeans(samples$Bs))
   post.median <- c(apply(samples$gammas, 2, median), apply(samples$Bs, 2, median))
 
@@ -1105,8 +1117,8 @@ em.est <- function(X, y, Omega.half,
     samples.diag <- sampler(X = X, y = y, Omega.half = Omega.half, num.samp = num.samp[i + 1], print.iter = FALSE,
                             max.iter = max.iter.slice, eps = eps.slice, diag.app = diag.app, burn.in = burn.in, prior = prior, c = c,
                             U = U, Psi.half = Psi.half, sig.sq = sig.sq, reg = reg, fix.beta = fix.beta,
-                            beta.fix = beta.fix, rho = rho)
-
+                            beta.fix = beta.fix, rho = rho, use.previous = use.previous,
+                            from.prior = from.prior, do.svd = do.svd, slice = slice, joint.beta = joint.beta)
     if (prior != "spn") {
       inv.ss <- matrix(rowMeans(apply(samples.diag$Ss, 1, function(x) {tcrossprod(1/abs(x))})), nrow = prod(p), ncol = prod(p))
     } else {
