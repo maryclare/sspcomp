@@ -398,7 +398,7 @@ h.log.r.sng <- function(eta, d0, d1, Omega.inv, beta, c, r.tilde, V.r.inv) {
   }
   comp.sum <- c(c1, c2, c3)
   # print(comp.sum)
-  return(sum(comp.sum))
+  return(ifelse(sum(r == 0) > 0 | sum(is.infinite(s.sq) > 0), -Inf, sum(comp.sum)))
 
 }
 
@@ -407,8 +407,12 @@ h.log.r.spb <- function(eta, d0, d1, Omega.inv, beta, c, r.tilde, V.r.inv, delta
   p <- unlist(lapply(Omega.inv, function(x) {nrow(x)}))
   alpha <- c/2
   s.sq <- 1/r^2
-  c1 <- -sum(log(abs(r)) + ((1 + alpha)/(1 - alpha) - 1)*log(sqrt(s.sq)))
-  c2 <- -sum((((2*gamma(3/c))/gamma(1/c))^(alpha/(1 - alpha))*f.deltas(deltas = deltas, c = c))*(s.sq)^(alpha/(1 - alpha)))
+  multip <- (((2*gamma(3/c))/gamma(1/c))^(alpha/(1 - alpha))*f.deltas(deltas = deltas, c = c))
+  # c1 <- -sum(log(abs(r)) + ((1 + alpha)/(1 - alpha) - 1)*log(sqrt(s.sq)))
+  c1 <- sum((((3*alpha - 1)/(1 - alpha)))*log(r^2)/2) # More numerically stable, doesn't give NaN if r is equal to zero
+  c2 <- -sum(multip*(s.sq)^(alpha/(1 - alpha)))
+  # c1 <- sum((((3*alpha - 1)/(1 - alpha)))*(log(r^2)/2 - (1 - alpha)/(3*alpha - 1)*log(exp(multip*(s.sq)^(alpha/(1 - alpha))))))
+  # c2 <- 0
 
   c3 <- 0
   for (i in 1:length(r)) {
@@ -416,7 +420,7 @@ h.log.r.spb <- function(eta, d0, d1, Omega.inv, beta, c, r.tilde, V.r.inv, delta
   }
   comp.sum <- c(c1, c2, c3)
   # print(comp.sum)
-  return(sum(comp.sum))
+  return(ifelse(sum(r == 0) > 0 | sum(is.infinite(s.sq) > 0), -Inf, sum(comp.sum)))
 
 }
 
@@ -431,8 +435,8 @@ h.log.r.spn <- function(eta, d0, d1, Omega.inv, beta, Psi.inv, r.tilde, V.r.inv)
     c3 <- c3 - sum((get.kron.row(i, Omega.inv)*r*beta)[-i]*r[i]*beta[i])/2
   }
   comp.sum <- c(c1, c2, c3)
-
-  return(sum(comp.sum))
+  # print(comp.sum)
+  return(ifelse(sum(r == 0) > 0 | sum(is.infinite(s.sq) > 0), -Inf, sum(comp.sum)))
 
 }
 
