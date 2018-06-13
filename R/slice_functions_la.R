@@ -436,7 +436,7 @@ h.log.r.spn <- function(eta, d0, d1, Omega.inv, beta, Psi.inv, r.tilde, V.r.inv)
   }
   comp.sum <- c(c1, c2, c3)
   # print(comp.sum)
-  return(ifelse(sum(r == 0) > 0 | sum(is.infinite(s.sq) > 0), -Inf, sum(comp.sum)))
+  return(ifelse(sum(r == 0) > 0 | sum(is.infinite(1/r) > 0), -Inf, sum(comp.sum)))
 
 }
 
