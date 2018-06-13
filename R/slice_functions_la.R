@@ -684,6 +684,7 @@ sampler <- function(X, y, Omega.half = NULL,
 
           if (use.previous & i > 1) {
             z.start <- c(z.tilde[1:q], atrans.mc(B.tilde/S, Omega.half.inv))
+            # This can work poorly if elements of S are super small...
           } else {
             z.start <- rep(0, ncol(UW))
           }
