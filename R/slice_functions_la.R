@@ -385,8 +385,11 @@ h.log.r.sng <- function(eta, d0, d1, Omega.inv, beta, c, r.tilde, V.r.inv) {
   r = d0*sin(eta) + d1*cos(eta)
   s.sq <- 1/r^2
   p <- unlist(lapply(Omega.inv, function(x) {nrow(x)}))
-  c1 <- -log(abs(r)) + (2*c - 1)*log(sqrt(s.sq))
-  c2 <- -c*s.sq
+  # This is actually pretty stable compared to other ways of writing c1 + c2 including:
+  # -c*(log(r^2*exp(1/r^2))) (less stable)
+  # -c*(log(r^2) + 1/r^2) (equally stable)
+  c1 <- -sum(log(abs(r)) + (2*c - 1)*log(sqrt(s.sq)))
+  c2 <- -sum(c*s.sq)
   # Need to improve how this is coded
 
   c3 <- 0
@@ -394,6 +397,7 @@ h.log.r.sng <- function(eta, d0, d1, Omega.inv, beta, c, r.tilde, V.r.inv) {
     c3 <- c3 - sum((get.kron.row(i, Omega.inv)*abs(r)*beta)[-i]*abs(r[i])*beta[i])/2
   }
   comp.sum <- c(c1, c2, c3)
+  # print(comp.sum)
   return(sum(comp.sum))
 
 }
@@ -403,14 +407,15 @@ h.log.r.spb <- function(eta, d0, d1, Omega.inv, beta, c, r.tilde, V.r.inv, delta
   p <- unlist(lapply(Omega.inv, function(x) {nrow(x)}))
   alpha <- c/2
   s.sq <- 1/r^2
-  c1 <- -log(abs(r)) + ((1 + alpha)/(1 - alpha) - 1)*log(sqrt(s.sq))
-  c2 <- -(((2*gamma(3/c))/gamma(1/c))^(alpha/(1 - alpha))*f.deltas(deltas = deltas, c = c))*(s.sq)^(alpha/(1 - alpha))
+  c1 <- -sum(log(abs(r)) + ((1 + alpha)/(1 - alpha) - 1)*log(sqrt(s.sq)))
+  c2 <- -sum((((2*gamma(3/c))/gamma(1/c))^(alpha/(1 - alpha))*f.deltas(deltas = deltas, c = c))*(s.sq)^(alpha/(1 - alpha)))
 
   c3 <- 0
   for (i in 1:length(r)) {
     c3 <- c3 - sum((get.kron.row(i, Omega.inv)*abs(r)*beta)[-i]*abs(r[i])*beta[i])/2
   }
   comp.sum <- c(c1, c2, c3)
+  # print(comp.sum)
   return(sum(comp.sum))
 
 }
@@ -419,7 +424,7 @@ h.log.r.spn <- function(eta, d0, d1, Omega.inv, beta, Psi.inv, r.tilde, V.r.inv)
   r = d0*sin(eta) + d1*cos(eta)
   p <- unlist(lapply(Omega.inv, function(x) {nrow(x)}))
 
-  c1 <- -log(r^2)/2
+  c1 <- -sum(log(r^2)/2)
   c2 <- -sum(c(atrans.mc(array(1/r, dim = p), Psi.inv))*(1/r))/2
   c3 <- 0
   for (i in 1:length(r)) {
@@ -850,6 +855,8 @@ sampler <- function(X, y, Omega.half = NULL,
         Omega.inv.diag <- rep(diag(Omega.inv[[k]]), each = prod(p[1:(k - 1)]))*Omega.inv.diag
       }
       V.r.inv <- as.vector(Omega.inv.diag*c(B^2))
+      V.r.inv[V.r.inv < 10^(-308)] <- 10^(-308) # Make sure we don't have problems with infinity/0 (should be careful about this)
+      V.r.inv[is.infinite(V.r.inv)] <- 10^(308)
       V.r.half <- sqrt(1/V.r.inv)
 
       if (prior == "sng") {
