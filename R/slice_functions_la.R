@@ -550,7 +550,11 @@ sampler <- function(X, y, Omega.half = NULL,
                     pr.Omega.df = lapply(dim(X)[-1], function(x) {x + 2}),
                     pr.Psi.df = lapply(dim(X)[-1], function(x) {x + 2}),
                     pr.sig.sq.shape = 3/2,
-                    pr.sig.sq.rate = 1/2, use.previous = FALSE, max.inner = 100) {
+                    pr.sig.sq.rate = 1/2, use.previous = FALSE, max.inner = 100,
+                    sep.theta = list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))))) {
+
+  sep.theta <- sep.theta
+  joint.beta <- joint.beta
 
   # Record some quantities and set up objects to save results in
   pr.Omega.V.inv <- pr.Omega.V.inv
@@ -636,7 +640,7 @@ sampler <- function(X, y, Omega.half = NULL,
   res.sig.sq <- array(dim = c(num.samp, 1))
   res.B <- array(dim = c(num.samp, prod(p)))
   res.S <- array(dim = c(num.samp, prod(p)))
-  res.theta <- numeric(num.samp)
+  res.theta <- array(dim = c(num.samp, prod(p) + q))
   res.ome <- array(dim = c(num.samp, n))
   res.eta <- numeric(num.samp)
   res.gamma <- array(dim = c(num.samp, q))
@@ -653,7 +657,10 @@ sampler <- function(X, y, Omega.half = NULL,
   Z <- array(0, dim = p)
   R <- array(1, dim = p)
   if (slice.beta) {
-    theta <- pi
+    theta <- numeric(prod(p) + q)
+    for (i in 1:length(sep.theta)) {
+      theta[sep.theta[[i]]] <- runif(1, 0, 2*pi)
+    }
   } else {
     if (reg == "logit" | reg == "nb") {
       ome <- rep(1, n)
@@ -1037,7 +1044,7 @@ sampler <- function(X, y, Omega.half = NULL,
       res.B[(i - burn.in)/thin, ] <- c(B)
       res.gamma[(i - burn.in)/thin, ] <- gamma
       if (slice.beta) {
-        res.theta[(i - burn.in)/thin] <- theta
+        res.theta[(i - burn.in)/thin, ] <- theta
       }
       res.S[(i - burn.in)/thin, ] <- c(S)
       res.eta[(i - burn.in)/thin] <- eta
@@ -1100,9 +1107,11 @@ em.est <- function(X, y, Omega.half,
                    diag.app = FALSE,
                    burn.in = 0, prior = "sno", c = 1, Psi.half = NULL, sig.sq = NULL, reg = "linear",
                    rho = 0, use.previous = FALSE,
-                   from.prior = FALSE, do.svd = TRUE, slice.beta = TRUE, joint.beta = list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))))) {
+                   from.prior = FALSE, do.svd = TRUE, slice.beta = TRUE, joint.beta = list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))),
+                   sep.theta = list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))))) {
 
   joint.beta <- joint.beta
+  sep.theta <- sep.theta
 
   W <- t(apply(X, 1, "c"))
 
