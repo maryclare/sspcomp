@@ -733,20 +733,23 @@ sampler <- function(X, y, Omega.half = NULL,
             }
           }
           if (diag.app) {
-            if (do.svd) {
-              if (n < prod(p)) {
+            # if (do.svd) {
+            #   if (n < prod(p)) {
+            #
+            #     svd.A <- svd(AAX)
+            #     R.A <- svd.A$v
+            #     d.A <- svd.A$d
+            #     V.half <- sqrt(c(diag(solve(crossprod(AAU)/sig.sq)), rep(1, prod(p)) - apply(R.A, 1, function(x) {sum(x^2*(d.A^2/(1 + d.A^2)))})/sig.sq))
+            #
+            #   } else {
+            #     V.half <- sqrt(c(diag(solve(crossprod(AAU)/sig.sq)), diag(solve(diag(prod(p)) + crossprod(AAX)/sig.sq))))
+            #   }
+            # } else {
+            #   V.half <- sqrt(c(diag(solve(crossprod(AAU)/sig.sq)), rep(1, prod(p))))
+            # }
 
-                svd.A <- svd(AAX)
-                R.A <- svd.A$v
-                d.A <- svd.A$d
-                V.half <- sqrt(c(diag(solve(crossprod(AAU)/sig.sq)), rep(1, prod(p)) - apply(R.A, 1, function(x) {sum(x^2*(d.A^2/(1 + d.A^2)))})/sig.sq))
-
-              } else {
-                V.half <- sqrt(c(diag(solve(crossprod(AAU)/sig.sq)), diag(solve(diag(prod(p)) + crossprod(AAX)/sig.sq))))
-              }
-            } else {
-              V.half <- sqrt(c(diag(solve(crossprod(AAU)/sig.sq)), rep(1, prod(p))))
-            }
+            V.half <- rep(1, ncol(UW))
+            # V.half <- sqrt(c(diag(solve(crossprod(AAU)/sig.sq)), rep(1, prod(p))))
 
             V.inv <- 1/V.half^2
 
