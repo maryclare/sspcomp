@@ -533,7 +533,7 @@ sampler <- function(X, y, Omega.half = NULL,
                     fix.beta = FALSE, beta.fix = rep(0, prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))),
                     rho = 0, pr.rho.a = 1, pr.rho.b = 1, tune = 0.5,
                     from.prior = FALSE,
-                    do.svd = TRUE, slice = TRUE, joint.beta = list(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))),
+                    do.svd = TRUE, slice.beta = TRUE, joint.beta = list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))),
                     str = "uns", thin = 1,
                     pr.Omega.V.inv = lapply(dim(X)[-1], diag),
                     pr.Psi.V.inv = lapply(dim(X)[-1], diag),
@@ -642,7 +642,7 @@ sampler <- function(X, y, Omega.half = NULL,
   B <- array(beta, dim = p)
   Z <- array(0, dim = p)
   R <- array(1, dim = p)
-  if (slice) {
+  if (slice.beta) {
     theta <- pi
   } else {
     if (reg == "logit" | reg == "nb") {
@@ -674,7 +674,7 @@ sampler <- function(X, y, Omega.half = NULL,
     if (!fix.beta) {
       sample.beta <- c(gamma, c(Z))
       if (print.iter) {cat("Sample Beta\n")}
-      if (slice) {
+      if (slice.beta) {
 
         # Set mean for proposal distribution
         if (from.prior) {
@@ -1023,7 +1023,7 @@ sampler <- function(X, y, Omega.half = NULL,
 
       res.B[(i - burn.in)/thin, ] <- c(B)
       res.gamma[(i - burn.in)/thin, ] <- gamma
-      if (slice) {
+      if (slice.beta) {
         res.theta[(i - burn.in)/thin] <- theta
       }
       res.S[(i - burn.in)/thin, ] <- c(S)
@@ -1049,7 +1049,7 @@ sampler <- function(X, y, Omega.half = NULL,
 
   res.list <- list("Bs" = res.B, "gammas" = res.gamma, "etas" = res.eta,
                    "Ss" = res.S)
-  if (slice) {
+  if (slice.beta) {
     res.list[["thetas"]] <- res.theta
   } else {
     res.list[["omes"]] <- res.ome
@@ -1087,7 +1087,7 @@ em.est <- function(X, y, Omega.half,
                    diag.app = FALSE,
                    burn.in = 0, prior = "sno", c = 1, Psi.half = NULL, sig.sq = NULL, reg = "linear",
                    rho = 0, use.previous = FALSE,
-                   from.prior = FALSE, do.svd = TRUE, slice = TRUE, joint.beta = list(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))) {
+                   from.prior = FALSE, do.svd = TRUE, slice.beta = TRUE, joint.beta = list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))))) {
 
   joint.beta <- joint.beta
 
@@ -1124,7 +1124,7 @@ em.est <- function(X, y, Omega.half,
                      max.iter = max.iter.slice, eps = eps.slice, diag.app = diag.app, burn.in = burn.in, prior = prior, c = c,
                      U = U, Psi.half = Psi.half, sig.sq = sig.sq, reg = reg, fix.beta = FALSE, rho = rho,
                      use.previous = use.previous,
-                     from.prior = from.prior, do.svd = do.svd, slice = slice, joint.beta = joint.beta)
+                     from.prior = from.prior, do.svd = do.svd, slice.beta = slice.beta, joint.beta = joint.beta)
   post.mean <- c(colMeans(samples$gammas), colMeans(samples$Bs))
   post.median <- c(apply(samples$gammas, 2, median), apply(samples$Bs, 2, median))
 
@@ -1143,7 +1143,7 @@ em.est <- function(X, y, Omega.half,
                             max.iter = max.iter.slice, eps = eps.slice, diag.app = diag.app, burn.in = burn.in, prior = prior, c = c,
                             U = U, Psi.half = Psi.half, sig.sq = sig.sq, reg = reg, fix.beta = fix.beta,
                             beta.fix = beta.fix, rho = rho, use.previous = use.previous,
-                            from.prior = from.prior, do.svd = do.svd, slice = slice, joint.beta = joint.beta)
+                            from.prior = from.prior, do.svd = do.svd, slice.beta = slice.beta, joint.beta = joint.beta)
     if (prior != "spn") {
       inv.ss <- matrix(rowMeans(apply(samples.diag$Ss, 1, function(x) {tcrossprod(1/abs(x))})), nrow = prod(p), ncol = prod(p))
     } else {
