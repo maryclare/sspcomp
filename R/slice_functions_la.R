@@ -141,32 +141,42 @@ g.delta <- function(deltas, xi, c) {
 }
 
 # Performs univariate slice sampling for an arbitrary RV, requires
-slice <- function(x.tilde, ll.fun, var.lim,
-                  ll.args) {
-  z <- do.call(ll.fun, c(x.tilde, ll.args)) - rexp(1)
-  a <- var.lim[1]
-  b <- var.lim[2]
-  d <- runif(1, a, b)
-  ll.d <- do.call(ll.fun, c(d, ll.args))
-  while (z > ll.d) {
+slice <- function(x.tilde, # Previous value of theta
+                  ll.fun,  # Log likelihood function
+                  var.lim, # Domain limits of slice variable theta
+                  ll.args  # Arguments required by the log likelihood function
+                  ) {
 
-    if (d < x.tilde) {
-      a <- d
-    } else {
-      b <- d
-    }
-    d <- runif(1, a, b)
+  d <- x.tilde
+  x.tilde.vals <- unique(x.tilde)
+
+  for (i in 1:length(x.tilde.vals)) {
+
+    z <- do.call(ll.fun, c(x.tilde, ll.args)) - rexp(1)
+    a <- var.lim[1]
+    b <- var.lim[2]
+    d[x.tilde == x.tilde.vals[i]] <- runif(1, a, b)
     ll.d <- do.call(ll.fun, c(d, ll.args))
-    # If we end up in a bad spot, reinitalize interval choice
-    if (is.nan(ll.d)) {
-      a <- var.lim[1]
-      b <- var.lim[2]
-      d <- runif(1, a, b)
-      ll.d <- do.call(ll.fun, c(d, ll.args))
-    }
+    while (z > ll.d) {
 
+      if (unique(d[x.tilde == x.tilde.vals[i]]) < x.tilde.vals[i]) {
+        a <- unique(d[x.tilde == x.tilde.vals[i]])
+      } else {
+        b <- unique(d[x.tilde == x.tilde.vals[i]])
+      }
+      d[x.tilde == x.tilde.vals[i]] <- runif(1, a, b)
+      ll.d <- do.call(ll.fun, c(d, ll.args))
+      # If we end up in a bad spot, reinitalize interval choice
+      if (is.nan(ll.d)) {
+        a <- var.lim[1]
+        b <- var.lim[2]
+        d[x.tilde == x.tilde.vals[i]] <- runif(1, a, b)
+        ll.d <- do.call(ll.fun, c(d, ll.args))
+      }
+
+    }
+    x.tilde.p <- d
   }
-  x.tilde.p <- d
   return(x.tilde.p)
 }
 
