@@ -152,11 +152,17 @@ slice <- function(x.tilde, # Previous value of theta
 
   for (i in 1:length(x.tilde.vals)) {
 
-    z <- do.call(ll.fun, c(x.tilde, ll.args)) - rexp(1)
+    arg.list <- vector("list", length = length(ll.args) + 1)
+    arg.list[[1]] <- x.tilde
+    arg.list[2:length(arg.list)] <- ll.args
+    z <- do.call(ll.fun, arg.list) - rexp(1)
     a <- var.lim[1]
     b <- var.lim[2]
     d[x.tilde == x.tilde.vals[i]] <- runif(1, a, b)
-    ll.d <- do.call(ll.fun, c(d, ll.args))
+    arg.list <- vector("list", length = length(ll.args) + 1)
+    arg.list[[1]] <- d
+    arg.list[2:length(arg.list)] <- ll.args
+    ll.d <- do.call(ll.fun, arg.list)
     while (z > ll.d) {
 
       if (unique(d[x.tilde == x.tilde.vals[i]]) < x.tilde.vals[i]) {
@@ -165,13 +171,19 @@ slice <- function(x.tilde, # Previous value of theta
         b <- unique(d[x.tilde == x.tilde.vals[i]])
       }
       d[x.tilde == x.tilde.vals[i]] <- runif(1, a, b)
-      ll.d <- do.call(ll.fun, c(d, ll.args))
+      arg.list <- vector("list", length = length(ll.args) + 1)
+      arg.list[[1]] <- d
+      arg.list[2:length(arg.list)] <- ll.args
+      ll.d <- do.call(ll.fun, arg.list)
       # If we end up in a bad spot, reinitalize interval choice
       if (is.nan(ll.d)) {
         a <- var.lim[1]
         b <- var.lim[2]
         d[x.tilde == x.tilde.vals[i]] <- runif(1, a, b)
-        ll.d <- do.call(ll.fun, c(d, ll.args))
+        arg.list <- vector("list", length = length(ll.args) + 1)
+        arg.list[[1]] <- d
+        arg.list[2:length(arg.list)] <- ll.args
+        ll.d <- do.call(ll.fun, arg.list)
       }
 
     }
