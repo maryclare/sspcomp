@@ -154,11 +154,10 @@ slice <- function(x.tilde, # Previous value of theta
   names(arg.list)[1] <- "theta"
   names(arg.list)[2:length(arg.list)] <- names(ll.args)
   arg.list[2:length(arg.list)] <- ll.args
+  arg.list[["theta"]] <- d
 
   for (i in 1:length(x.tilde.vals)) {
 
-
-    arg.list[["theta"]] <- d
     z <- do.call(ll.fun, arg.list) - rexp(1)
     a <- var.lim[1]
     b <- var.lim[2]
@@ -405,73 +404,54 @@ h.log <- function(theta, d0, d1, X, U, y, beta, Omega.half, beta.tilde, V.inv, O
 }
 
 h.log.r.sng <- function(theta, d0, d1, Omega.inv, beta, c, r.tilde, V.r.inv) {
-  r = d0*sin(theta) + d1*cos(theta)
-  s.sq <- 1/r^2
-  p <- unlist(lapply(Omega.inv, function(x) {nrow(x)}))
-  # This is actually pretty stable compared to other ways of writing c1 + c2 including:
-  # -c*(log(r^2*exp(1/r^2))) (less stable)
-  # -c*(log(r^2) + 1/r^2) (equally stable)
-  c1 <- -sum(log(abs(r)) + (2*c - 1)*log(sqrt(s.sq)))
-  c2 <- -sum(c*s.sq)
-  # Need to improve how this is coded
 
-  c3 <- 0
-  for (i in 1:length(r)) {
-    c3 <- c3 - sum((get.kron.row(i, Omega.inv)*abs(r)*beta)*abs(r[i])*beta[i])/2
+  p <- unlist(lapply(Omega.inv, function(x) {nrow(x)}))
+
+  r <- d0*sin(theta) + d1*cos(theta) + r.tilde
+
+  if (is.null(r.tilde) & is.null(V.r.inv)) {
+    r.tilde <- rep(0, length(d0))
+    V.r.inv <- rep(0, length(d0))
   }
-  c4 <- 0
-  if (!is.null(V.r.inv) & !is.null(r.tilde) & is.vector(V.r.inv)) {
-    c4 <- sum((r - r.tilde)^2*V.r.inv)/2
-  }
-  comp.sum <- c(c1, c2, c3, c4)
-  # print(comp.sum)
-  return(ifelse(sum(r == 0) > 0 | sum(is.infinite(s.sq) > 0), -Inf, sum(comp.sum)))
+  s <- 1/abs(r)
+  val <- -sum(c(atrans.mc(array(abs(r)*beta, dim = p), Omega.inv))*(abs(r)*beta))/2 -
+    sum(log(abs(r))) + (2*c - 1)*sum(log(s)) - sum(s^2*c) - sum((r - r.tilde)^2*V.r.inv/2)
+  return(val)
 
 }
 
 h.log.r.spb <- function(theta, d0, d1, Omega.inv, beta, c, r.tilde = NULL, V.r.inv = NULL, deltas) {
-  r = d0*sin(theta) + d1*cos(theta)
-  p <- unlist(lapply(Omega.inv, function(x) {nrow(x)}))
-  alpha <- c/2
-  s.sq <- 1/r^2
-  multip <- (((2*gamma(3/c))/gamma(1/c))^(alpha/(1 - alpha))*f.deltas(deltas = deltas, c = c))
-  # c1 <- -sum(log(abs(r)) + ((1 + alpha)/(1 - alpha) - 1)*log(sqrt(s.sq)))
-  c1 <- sum((((3*alpha - 1)/(1 - alpha)))*log(r^2)/2) # More numerically stable, doesn't give NaN if r is equal to zero
-  c2 <- -sum(multip*(s.sq)^(alpha/(1 - alpha)))
-  # c1 <- sum((((3*alpha - 1)/(1 - alpha)))*(log(r^2)/2 - (1 - alpha)/(3*alpha - 1)*log(exp(multip*(s.sq)^(alpha/(1 - alpha))))))
-  # c2 <- 0
 
-  c3 <- 0
-  for (i in 1:length(r)) {
-    c3 <- c3 - sum((get.kron.row(i, Omega.inv)*abs(r)*beta)*abs(r[i])*beta[i])/2
+  p <- unlist(lapply(Omega.inv, function(x) {nrow(x)}))
+  if (is.null(r.tilde) & is.null(V.r.inv)) {
+    r.tilde <- rep(0, length(d0))
+    V.r.inv <- rep(0, length(d0))
   }
-  c4 <- 0
-  if (!is.null(V.r.inv) & !is.null(r.tilde) & is.vector(V.r.inv)) {
-    c4 <- sum((r - r.tilde)^2*V.r.inv)/2
-  }
-  comp.sum <- c(c1, c2, c3, c4)
-  # print(comp.sum)
-  return(ifelse(sum(r == 0) > 0 | sum(is.infinite(s.sq) > 0), -Inf, sum(comp.sum)))
+  r = d0*sin(theta) + d1*cos(theta) + r.tilde
+  alpha <- c/2
+  s <- 1/abs(r)
+  multip <- (((2*gamma(3/c))/gamma(1/c))^(alpha/(1 - alpha))*f.deltas(deltas = deltas, c = c))
+
+  s <- 1/abs(r)
+  val <- -sum(c(atrans.mc(array(abs(r)*beta, dim = p), Omega.inv))*(abs(r)*beta))/2 -
+    sum(log(abs(r))) + ((1 + alpha)/(1 - alpha) - 1)*sum(log(s)) - sum((s^2)^(alpha/(1 - alpha))*multip) - sum((r - r.tilde)^2*V.r.inv/2)
+  return(val)
+
+
 
 }
 
 h.log.r.spn <- function(theta, d0, d1, Omega.inv, beta, Psi.inv, r.tilde, V.r.inv) {
-  r = d0*sin(theta) + d1*cos(theta)
+  r = d0*sin(theta) + d1*cos(theta) + r.tilde
   p <- unlist(lapply(Omega.inv, function(x) {nrow(x)}))
+  if (is.null(r.tilde) & is.null(V.r.inv)) {
+    r.tilde <- rep(0, length(d0))
+    V.r.inv <- rep(0, length(d0))
+  }
+  val <- -sum(c(atrans.mc(array(r*beta, dim = p), Omega.inv))*(r*beta))/2 -
+    -sum(log(r^2)/2) -sum(c(atrans.mc(array(1/r, dim = p), Psi.inv))*(1/r))/2 - sum((r - r.tilde)^2*V.r.inv/2)
 
-  c1 <- -sum(log(r^2)/2)
-  c2 <- -sum(c(atrans.mc(array(1/r, dim = p), Psi.inv))*(1/r))/2
-  c3 <- 0
-  for (i in 1:length(r)) {
-    c3 <- c3 - sum((get.kron.row(i, Omega.inv)*r*beta)*r[i]*beta[i])/2
-  }
-  c4 <- 0
-  if (!is.null(V.r.inv) & !is.null(r.tilde) & is.vector(V.r.inv)) {
-    c4 <- sum((r - r.tilde)^2*V.r.inv)/2
-  }
-  comp.sum <- c(c1, c2, c3, c4)
-  # print(comp.sum)
-  return(ifelse(sum(r == 0) > 0 | sum(is.infinite(1/r) > 0), -Inf, sum(comp.sum)))
+  return(val)
 
 }
 
@@ -581,9 +561,15 @@ sampler <- function(X, y, Omega.half = NULL,
                     pr.sig.sq.rate = 1/2, use.previous = FALSE, max.inner = 100,
                     sep.theta = list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))),
                     sep.eta = list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))),
-                    V.inv = NULL, V.r.inv = NULL, beta.tilde = NULL, r.tilde = NULL) {
+                    V.inv = NULL, V.r.inv = NULL, z.tilde = NULL, r.tilde = NULL,
+                    r.fix = NULL, z.fix = NULL) {
 
   # Record some quantities and set up objects to save results in
+  null.V.inv <- is.null(V.inv)
+  null.V.r.inv <- is.null(V.r.inv)
+  null.z.tilde <- is.null(z.tilde)
+  null.r.tilde <- is.null(r.tilde)
+
   sep.theta <- sep.theta
   sep.eta <- sep.eta
   joint.beta <- joint.beta
@@ -676,7 +662,8 @@ sampler <- function(X, y, Omega.half = NULL,
   res.rho.psi <- array(dim = c(num.samp, 1))
   res.sig.sq <- array(dim = c(num.samp, 1))
   res.B <- array(dim = c(num.samp, prod(p)))
-  res.S <- array(dim = c(num.samp, prod(p)))
+  res.Z <- array(dim = c(num.samp, prod(p) + q))
+  res.R <-res.S <- array(dim = c(num.samp, prod(p)))
   res.theta <- array(dim = c(num.samp, prod(p) + q))
   res.ome <- array(dim = c(num.samp, n))
   res.eta <- array(dim = c(num.samp, prod(p)))
@@ -688,11 +675,24 @@ sampler <- function(X, y, Omega.half = NULL,
     c <- 1
   }
   S <- array(1, dim = p)
-  gamma <- beta.fix[1:q]
-  beta <- beta.fix[(q + 1):length(beta.fix)]
+  if (is.null(z.fix)) {
+    gamma <- beta.fix[1:q]
+    beta <- beta.fix[(q + 1):length(beta.fix)]
+  } else {
+    gamma <- z.fix[1:q]
+    beta <- c(atrans.mc(array(z.fix[(q + 1):length(z.fix)], dim = p), Omega.half))
+  }
   B <- array(beta, dim = p)
-  Z <- array(0, dim = p)
-  R <- array(1, dim = p)
+  if (is.null(z.fix)) {
+    Z <- array(0, dim = p)
+  }  else {
+    Z <- array(z.fix[(q + 1):length(z.fix)], dim = p)
+  }
+  if (is.null(r.fix)) {
+    R <- array(1, dim = p)
+  } else {
+    R <- array(r.fix, dim = p)
+  }
   if (slice.beta) {
     theta <- numeric(prod(p) + q)
     for (i in 1:length(sep.theta)) {
@@ -733,6 +733,8 @@ sampler <- function(X, y, Omega.half = NULL,
       if (print.iter) {cat("Sample Beta\n")}
       if (slice.beta) {
 
+
+        if (null.z.tilde & null.V.inv) {
         # Set mean for proposal distribution
         if (from.prior) {
           z.tilde <- rep(0, ncol(UW))
@@ -822,6 +824,15 @@ sampler <- function(X, y, Omega.half = NULL,
             V.inv <- UWtBB + diag(penC)
             V.half <- sym.sq.root.inv(V.inv)
           }
+
+        }
+        } else {
+            z.tilde <- z.tilde
+            if (is.matrix(V.inv)) {
+              V.half <- sym.sq.root.inv(V.inv)
+            } else if (is.vector(V.inv)) {
+              V.half <- sqrt(1/V.inv)
+            }
 
         }
         if  (print.iter) {cat("Sample Beta and Theta\n")}
@@ -918,8 +929,25 @@ sampler <- function(X, y, Omega.half = NULL,
 
     }
 
+
+
+    if (i == 1) {
+      deltas <- runif(prod(p), 0, pi)
+    } else {
+      if (prior == "spb") {
+        if (print.iter) {cat("Sample Delta\n")}
+      for (ii in 1:length(deltas)) {
+        alpha <- c/2
+        xi <- (2*gamma(3/(2*alpha))*c(S)[ii]^2/gamma(1/(2*alpha)))^(alpha/(1 - alpha))
+        deltas[ii] <- slice(x.tilde = deltas[ii], ll.fun = "g.delta",
+                            var.lim = c(0, pi), ll.args = list("c" = c, "xi" = xi))
+      }
+      }
+    }
+
     if (prior == "sng" | prior == "spn" | prior == "spb") {
 
+      if (null.r.tilde & null.V.r.inv) {
       if (i == 1) {
         start.r <- rep(1, prod(p))
       } else {
@@ -938,42 +966,15 @@ sampler <- function(X, y, Omega.half = NULL,
         kappa2 <- -c
         kappa3 <- -1
 
-        if (c > 1) {
-        r.tilde <- coord.desc.r.pos(Omega.inv = Omega.inv,
-                                    beta = c(B), c = c, eps = eps, max.iter = max.iter,
-                                    print.iter = FALSE, max.inner = max.inner,
-                                    start.r = start.r,
-                                    prior = prior)$r
+       r.tilde <- coord.desc.r(Omega.inv = Omega.inv,
+                               beta = c(B), c = c, eps = eps, max.iter = max.iter,
+                               print.iter = FALSE, max.inner = max.inner,
+                               start.r = start.r,
+                               prior = prior)$r
         r.tilde <- abs(r.tilde) # Sign doesn't matter
 
-        V.r.inv <- -as.vector(-(kappa1 - 1)*sign(r.tilde)^2/r.tilde^2 + kappa2*2*kappa3*(2*kappa3 - 1)*r.tilde^(2*kappa3 - 2) -Omega.inv.diag*c(B^2))
-        } else {
-          r.tilde <- rep(0, prod(p))
-          V.r.inv <-rep(1, prod(p))
+        V.r.inv <- -as.vector(-(kappa1 - 1)*sign(r.tilde)^2/r.tilde^2 + kappa2*2*kappa3*(2*kappa3 - 1)*r.tilde^(2*kappa3 - 2))
 
-          for (l in 1:10) {
-          for (k in 1:prod(p)) {
-            start <- sqrt(1/V.r.inv[k])
-            v <- start
-            diff <- Inf
-
-            Omega.inv.k <- get.kron.row(k, Omega = Omega.inv)
-            alpha1 <- -c(B)[k]^2*Omega.inv.k[k]/2
-            alpha2 <- -sum(c(B)[k]*Omega.inv.k[-k]*sqrt(1/V.r.inv[-k])*c(B)[-k])/2
-
-            while (diff > eps) {
-
-              v.p <- v - elbo.d(v, alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)/elbo.dd(v, alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
-
-              diff <- abs(v - v.p)
-              v <- v.p
-
-            }
-            V.r.inv[k] <- 1/v^2
-          }
-
-          }
-        }
         V.r.inv[V.r.inv < 10^(-10)] <- 10^(-10) # Make sure we don't have problems with infinity/0 (should be careful about this)
         V.r.inv[is.infinite(V.r.inv)] <- 10^(10)
         V.r.half <- sqrt(1/V.r.inv)
@@ -988,13 +989,27 @@ sampler <- function(X, y, Omega.half = NULL,
         # V.r.half <- sqrt(1/V.r.inv)
 
         if (print.iter) {cat("Sample R\n")}
+        # print(r.tilde)
+        # print(1/V.r.inv)
         sample <- sample.r.eta(r = c(R), Omega.inv = Omega.inv, beta = c(B), c = c, eta = eta,
                                r.tilde = r.tilde, V.r.inv = V.r.inv, V.r.half = V.r.half, prior = prior)
 
       } else if (prior == "spn") {
         if (print.iter) {cat("Set Sampling Values for R\n")}
-        r.tilde <- rep(0, prod(p))
-        V.r.inv <- as.vector(Omega.inv.diag*c(B^2))
+
+        Psi.inv.diag <- rep(diag(Psi.inv[[1]]), times = prod(p[-1]))
+        for (k in 2:length(p)) {
+          Psi.inv.diag <- rep(diag(Psi.inv[[k]]), each = prod(p[1:(k - 1)]))*Psi.inv.diag
+        }
+
+
+        r.tilde <- coord.desc.r(Omega.inv = Omega.inv,
+                                beta = c(B), c = c, eps = eps, max.iter = max.iter,
+                                print.iter = FALSE, max.inner = max.inner,
+                                start.r = start.r,
+                                prior = prior, Psi.inv = Psi.inv)$r
+
+        V.r.inv <- -as.vector(-(1/2 - 1)*1/r.tilde^2 - 3*Psi.inv.diag/r.tilde^4)
         V.r.inv[V.r.inv < 10^(-10)] <- 10^(-10) # Make sure we don't have problems with infinity/0 (should be careful about this)
         V.r.inv[is.infinite(V.r.inv)] <- 10^(10)
         V.r.half <- sqrt(1/V.r.inv)
@@ -1004,80 +1019,30 @@ sampler <- function(X, y, Omega.half = NULL,
         sample <- sample.r.eta(r = c(R), Omega.inv = Omega.inv, beta = c(B), Psi.inv = Psi.inv, eta = eta,
                                r.tilde = r.tilde, V.r.inv = V.r.inv, V.r.half = V.r.half, c = c, prior = prior)
       } else if (prior == "spb") {
-        if (print.iter) {cat("Sample Delta\n")}
 
-        if (i == 1) {
-          deltas <- runif(prod(p), 0, pi)
-        } else {
-          for (ii in 1:length(deltas)) {
-            alpha <- c/2
-            xi <- (2*gamma(3/(2*alpha))*c(S)[ii]^2/gamma(1/(2*alpha)))^(alpha/(1 - alpha))
-            deltas[ii] <- slice(x.tilde = deltas[ii], ll.fun = "g.delta",
-                                var.lim = c(0, pi), ll.args = list("c" = c, "xi" = xi))
-          }
-        }
-        #
-        # if (print.iter) {cat("Set Sampling Values for R\n")}
-        #
-        # kappa1 <- 2*(c/2)/(c/2 - 1)
-        # kappa2 <- -(((2*gamma(3/c))/gamma(1/c))^(c/2/(1 - c/2))*f.deltas(deltas = deltas, c = c))
-        # kappa3 <- c/2/(c/2 - 1)
-        #
-        # if (c > 1) {
-        #
-        # start.r <- rep(1, prod(p))
-        # r.tilde <- coord.desc.r.pos(Omega.inv = Omega.inv,
-        #                             beta = c(B), c = c, eps = eps, max.iter = max.iter, print.iter = FALSE,
-        #                             max.inner = max.inner, start.r = start.r,
-        #                             deltas = deltas, prior = prior)$r
-        # r.tilde <- abs(r.tilde) # Sign doesn't matter
-        #
-        # print(r.tilde)
-        #
-        # V.r.inv <- -as.vector(-(kappa1 - 1)*sign(r.tilde)^2/r.tilde^2 + kappa2*2*kappa3*(2*kappa3 - 1)*r.tilde^(2*kappa3 - 2) -Omega.inv.diag*c(B^2))
-        #
-        # print(sqrt(1/V.r.inv))
-        #
-        # } else {
-        #
-        #   r.tilde <- rep(0, prod(p))
-        #   V.r.inv <-rep(1, prod(p))
-        #
-        #   for (l in 1:10) {
-        #   for (k in 1:prod(p)) {
-        #     v <- sqrt(1/V.r.inv[k])
-        #     diff <- Inf
-        #
-        #     Omega.inv.k <- get.kron.row(k, Omega = Omega.inv)
-        #     alpha1 <- -c(B)[k]^2*Omega.inv.k[k]/2
-        #     alpha2 <- -sum(c(B)[k]*Omega.inv.k[-k]*sqrt(1/V.r.inv[-k])*c(B)[-k])/2
-        #
-        #     while (diff > eps) {
-        #
-        #       v.p <- v - elbo.d(v, alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2[k], kappa3 = kappa3)/elbo.dd(v, alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2[k], kappa3 = kappa3)
-        #
-        #       diff <- abs(v - v.p)
-        #       v <- v.p
-        #
-        #     }
-        #     V.r.inv[k] <- 1/v^2
-        #
-        #   }
-        #   }
-        # }
-        # V.r.inv[V.r.inv < 10^(-10)] <- 10^(-10) # Make sure we don't have problems with infinity/0 (should be careful about this)
-        # V.r.inv[is.infinite(V.r.inv)] <- 10^(10)
-        # V.r.half <- sqrt(1/V.r.inv)
+
+        if (print.iter) {cat("Set Sampling Values for R\n")}
+
+        kappa1 <- 2*(c/2)/(c/2 - 1)
+        kappa2 <- -(((2*gamma(3/c))/gamma(1/c))^(c/2/(1 - c/2))*f.deltas(deltas = deltas, c = c))
+        kappa3 <- c/2/(c/2 - 1)
+
+        start.r <- rep(1, prod(p))
+        r.tilde <- coord.desc.r(Omega.inv = Omega.inv,
+                                beta = c(B), c = c, eps = eps, max.iter = max.iter, print.iter = FALSE,
+                                max.inner = max.inner, start.r = start.r,
+                                deltas = deltas, prior = prior)$r
+        r.tilde <- abs(r.tilde) # Sign doesn't matter
+
+        V.r.inv <- -as.vector(-(kappa1 - 1)*sign(r.tilde)^2/r.tilde^2 + kappa2*2*kappa3*(2*kappa3 - 1)*r.tilde^(2*kappa3 - 2))
+
+
+        V.r.inv[V.r.inv < 10^(-10)] <- 10^(-10) # Make sure we don't have problems with infinity/0 (should be careful about this)
+        V.r.inv[is.infinite(V.r.inv)] <- 10^(10)
+        V.r.half <- sqrt(1/V.r.inv)
 
         # print(r.tilde)
         # print(V.r.half)
-
-        r.tilde <- rep(1, prod(p))
-        V.r.inv <- as.vector(Omega.inv.diag*c(B^2))*0 + 1
-        # V.r.inv[V.r.inv < 10^(-10)] <- 10^(-10) # Make sure we don't have problems with infinity/0 (should be careful about this)
-        # V.r.inv[is.infinite(V.r.inv)] <- 10^(10)
-        V.r.half <- sqrt(1/V.r.inv)
-
 
         if (print.iter) {cat("Sample R\n")}
 
@@ -1085,10 +1050,27 @@ sampler <- function(X, y, Omega.half = NULL,
                                r.tilde = r.tilde, V.r.inv = V.r.inv, V.r.half =
                                  V.r.half, c = c, prior = prior)
       }
+      } else {
+        if (is.matrix(V.r.inv)) {
+          V.r.half <- sym.sq.root.inv(V.r.inv)
+        } else {
+          V.r.half <- sqrt(1/V.r.inv)
+        }
+      sample <- sample.r.eta(r = c(R), Omega.inv = Omega.inv, beta = c(B), deltas = deltas, eta = eta,
+                             r.tilde = r.tilde, V.r.inv = V.r.inv, V.r.half =
+                               V.r.half, c = c, prior = prior, Psi.inv = Psi.inv)
+    }
       r <- sample$r
+      # print(r)
       R <- array(r, p)
       eta <- sample$eta
-      S <- array(1/r, dim = p)
+      if (prior %in% c("sng", "spb")) {
+        S <- array(abs(1/r), dim = p)
+      } else if (prior  == "spn") {
+        S <- array(1/r, dim = p)
+      } else {
+        S <- array(1, dim = p)
+      }
       if (!fix.beta) {
         Z <- atrans.mc(B/S, Omega.half.inv)
         B <- S*atrans.mc(Z, Omega.half)
@@ -1213,12 +1195,16 @@ sampler <- function(X, y, Omega.half = NULL,
     if (i > burn.in & (i - burn.in)%%thin == 0) {
 
       res.B[(i - burn.in)/thin, ] <- c(B)
+      res.Z[(i - burn.in)/thin, ] <- c(gamma, c(B))
       res.gamma[(i - burn.in)/thin, ] <- gamma
       if (slice.beta) {
         res.theta[(i - burn.in)/thin, ] <- theta
       }
       res.S[(i - burn.in)/thin, ] <- c(S)
-      res.eta[(i - burn.in)/thin, ] <- eta
+      res.R[(i - burn.in)/thin, ] <- c(R)
+      if (prior %in% c("sng", "spb", "spn")) {
+        res.eta[(i - burn.in)/thin, ] <- eta
+      }
       # if (prior == "sng" & null.c) {
       #   res.c[(i - burn.in)/thin] <- c
       #   acc.c[(i - burn.in)/thin] <- a.c
@@ -1239,7 +1225,7 @@ sampler <- function(X, y, Omega.half = NULL,
   }
 
   res.list <- list("Bs" = res.B, "gammas" = res.gamma, "etas" = res.eta,
-                   "Ss" = res.S)
+                   "Ss" = res.S, "Zs" = res.Z, "Rs" = res.R)
   if (slice.beta) {
     res.list[["thetas"]] <- res.theta
   } else {
