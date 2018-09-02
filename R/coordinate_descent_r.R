@@ -1,6 +1,6 @@
 # Can just use h.log.r.spb and h.log.r.sng functions for objective
 sp.ll <- function(rj, alpha1, alpha2, kappa1, kappa2, kappa3) {
-  alpha1*rj^2 + (kappa1 - 1)*log(abs(rj)) + kappa2*(1/rj^2) + kappa3*(1/rj) + rj*alpha2
+  alpha1*rj^(-2) -log(abs(rj)) + kappa2*(rj^2) + kappa3*(rj) + alpha2/rj
 }
 # sp.ll.d <- Deriv(sp.ll, "rj")
 sp.ll.d <- function (rj, alpha1, alpha2, kappa1, kappa2, kappa3) {
@@ -17,20 +17,23 @@ sp.ll.dd <- function (rj, alpha1, alpha2, kappa1, kappa2, kappa3)
 
 
 sn.ll <- function(rj, alpha1, alpha2, kappa1, kappa2, kappa3) {
-  alpha1*rj^2 + (kappa1 - 1)*log(abs(rj)) + kappa2*abs(rj)^(2*kappa3) + abs(rj)*alpha2
+  alpha1*rj^(-2) - (kappa1 - 1)*log(abs(rj)) - 2*log(abs(rj)) + kappa2*abs(rj)^(-2*kappa3) + alpha2/abs(rj)
 }
 # sn.ll.d <- Deriv(sn.ll, "rj")
-sn.ll.d <- function (rj, alpha1, alpha2, kappa1, kappa2, kappa3) {
+sn.ll.d <- function (rj, alpha1, alpha2, kappa1, kappa2, kappa3)
+{
   .e1 <- abs(rj)
-  ((kappa1 - 1)/.e1 + 2 * (kappa2 * kappa3 * .e1^(2 * kappa3 -
-                                                    1)) + alpha2) * sign(rj) + 2 * (alpha1 * rj)
+  -(((1 + 2 * (kappa2 * kappa3/.e1^(2 * kappa3)) + kappa1)/.e1 +
+       alpha2/rj^2) * sign(rj) + 2 * (alpha1/rj^3))
 }
 # sn.ll.dd <- Deriv(sn.ll.d, "rj")
 sn.ll.dd <- function (rj, alpha1, alpha2, kappa1, kappa2, kappa3)
 {
-  .e1 <- 2 * kappa3
-  (2 * (kappa2 * kappa3 * (.e1 - 1) * abs(rj)^(.e1 - 2)) -
-      (kappa1 - 1)/rj^2) * sign(rj)^2 + 2 * alpha1
+  .e3 <- abs(rj)^(2 * kappa3)
+  .e4 <- rj^2
+  .e5 <- sign(rj)
+  (((1 + kappa1 + kappa2 * kappa3 * (2/.e3 + 4 * (kappa3/.e3))) *
+      .e5 + 2 * (alpha2/rj)) * .e5 + 6 * (alpha1/.e4))/.e4
 }
 
 #' @export
@@ -49,6 +52,7 @@ coord.desc.r <- function(Omega.inv, beta, c = NULL, eps = 10^(-12), max.iter = 1
       # Newton Raphson
       diff <- Inf
       inner <- 1
+      reset <- 1
       while(abs(diff) > eps & inner <= max.inner) {
 
         Omega.inv.j <- get.kron.row(j, Omega = Omega.inv)
@@ -78,10 +82,15 @@ coord.desc.r <- function(Omega.inv, beta, c = NULL, eps = 10^(-12), max.iter = 1
 
         inner <- inner + 1
 
-        if (is.na(diff)) {
-          r[j] <- abs(runif(1, 0.25, 2))
+        if (is.na(diff) | abs(r[j]) > 100) {
+          r[j] <- abs(runif(1, 0, 1))
           diff <- Inf
           inner <- 1
+          reset <- reset + 1
+          if (reset > 1) {
+            r[j] <- 0
+            diff <- 0
+          }
         }
 
         r.old <- r
@@ -108,7 +117,7 @@ coord.desc.r <- function(Omega.inv, beta, c = NULL, eps = 10^(-12), max.iter = 1
     cat("obj = ", objs[i], "\n")
   }
   if (i > 1) {
-    if (abs(objs[i] - objs[i - 1]) < eps) {
+    if (sum(r == 0) == 0 & abs(objs[i] - objs[i - 1]) < eps) {
       break
     }
   }
