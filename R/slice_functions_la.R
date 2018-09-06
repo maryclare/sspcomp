@@ -1145,11 +1145,12 @@ sampler <- function(X, y, Omega.half = NULL,
       }
       if (k == 1 & null.rho) {
         if (print.iter) {cat("Sample rho\n")}
-        rho <- slice(x.tilde = rho, ll.fun = "cond.rho.log", var.lim = c(-1, 1),
+        rho <- slice(x.tilde = rho, ll.fun = "cond.rho.log", var.lim = c(-1, 1)*(1 - 10^(-7)),
                      ll.args = list("B" = Covar,
                                     "pr.a" = pr.rho.a,
                                     "pr.b" = pr.rho.b,
                                     "j" = k))
+        if (print.iter) {cat("rho = ", rho, "\n")}
         Omega.inv[[k]] <- make.ar.mat(p = p[k], rho = rho, inv = TRUE)
 
       } else {
