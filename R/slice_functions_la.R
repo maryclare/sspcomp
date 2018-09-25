@@ -638,12 +638,12 @@ sampler <- function(
 
   if (!diag.app) {
     # Can only use separate thetas if we are using independent proposals
-    cat("Separate values of the slice variable for beta are only possible for diagonal covariance matrices\n")
+    if (print.iter) {cat("Separate values of the slice variable for beta are only possible for diagonal covariance matrices\n")}
     sep.theta <- list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))))
   }
   if (!diag.app.r) {
     # Can only use separate etas if we are using independent proposals
-    cat("Separate values of the slice variable for r are only possible for diagonal covariance matrices\n")
+    if (print.iter) {cat("Separate values of the slice variable for r are only possible for diagonal covariance matrices\n")}
     sep.eta <- list(1:(prod(dim(X)[-1])))
   }
 
