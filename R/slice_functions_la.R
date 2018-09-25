@@ -594,7 +594,7 @@ sampler <- function(
   max.inner = 100,
   max.inner.r = max.inner,
   sep.theta = list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))),
-  sep.eta = list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))),
+  sep.eta = list(1:(prod(dim(X)[-1]))),
   V.inv = NULL,
   V.r.inv = NULL,
   z.tilde = NULL,
@@ -657,11 +657,6 @@ sampler <- function(
 
   # Set starting values
   null.rho <- is.null(rho)
-
-  if (!null.rho & !null.Omega.half[[1]]) {
-    cat("Both rho and Omega.half[[1]] are specified - need to specify at most one\n")
-    break;
-  }
 
   null.sig.sq <- is.null(sig.sq)
   if (null.rho) {
@@ -737,7 +732,6 @@ sampler <- function(
   } else {
     gamma <- gamma.start
   }
-  B <- array(beta, dim = p)
   if (is.null(z.start)) {
     Z <- array(0, dim = p)
   }  else {
@@ -779,6 +773,8 @@ sampler <- function(
   UW <- cbind(U, W)
 
   penC <- c(rep(0, ncol(U)), rep(1, ncol(W)))
+
+  B <- atrans.mc(Z, Omega.half)
 
   for (i in 1:(burn.in + thin*num.samp)) {
     if (print.iter) {cat("i=", i, "\n")}
@@ -1097,7 +1093,7 @@ sampler <- function(
 
 
         V.r.inv[V.r.inv < 10^(-10)] <- 10^(-10) # Make sure we don't have problems with infinity/0 (should be careful about this)
-        V.r.inv[is.infinite(V.r.inv)] <- 10^(10)
+        V.r.inv[is.infinite(V.r.inv) | is.nan(V.r.inv)] <- 10^(10)
         V.r.half <- sqrt(1/V.r.inv)
 
 
@@ -1129,7 +1125,7 @@ sampler <- function(
           alpha2 <- -sum(c(B)[jj]*Omega.inv.jj[-jj]*abs(r.tilde[-jj])*c(B)[-jj])
 
           if (r.tilde[jj] != 0) {
-            hess <- sn.ll.dd(rj = r.tilde[jj], alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
+            hess <- sn.ll.dd(rj = r.tilde[jj], alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2[jj], kappa3 = kappa3)
           } else {
             hess <- 2*alpha1
           }
