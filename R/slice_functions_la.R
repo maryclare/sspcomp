@@ -1,53 +1,65 @@
 #' @export
-get.beta.blocks <- function(X, q, min.block.size = 25, max.block.size = Inf, no.eig = TRUE) {
+get.beta.blocks <- function(X, U = NULL, min.block.size = 25, max.block.size = Inf, no.eig = TRUE) {
 
   p <- dim(X)[-1]
-
-  if (no.eig) {
-    ends <- seq(1, prod(p) + 1, by = min.block.size)
-    joint.beta <- vector("list", length = ifelse(prod(p) + 1 %in% ends, length(ends), length(ends) + 1))
-
-    for (i in 1:(length(joint.beta) - 1)) {
-      joint.beta[[i]] <- ends[i]:(ends[i + 1] - 1)
-    }
-    joint.beta[[length(joint.beta)]] <- ends[length(ends)]:(prod(p) + 1)
+  if (is.null(U)) {
+    q <- 0
   } else {
-    C <- cov2cor(cov(t(apply(X, 1, "c"))))
-    C.ei <- eigen(C)
-    num.per.block <- round(prod(p)*C.ei$values/sum(C.ei$values), 0)
-    if (!is.infinite(max.block.size)) {
-      num.per.block[num.per.block > max.block.size] <- max.block.size
-    }
-    num.per.block[1] <- num.per.block[1] + q
-    max.ei <- max(which((num.per.block) > 25))
-    num.block <- max.ei + ceiling((prod(p) - sum(num.per.block[1:max(which((num.per.block) > 25))]))/25)
-    joint.beta <- vector("list", length = num.block)
+    q <- dim(U)[-1]
+  }
+  if (no.eig) {
+    ends <- seq(1, prod(p) + q, by = min.block.size)
+    joint.beta <- vector("list", length = length(ends) - 1)
+    ends[-1] <- ends[-1] + (prod(p) + q - max(ends[-1]))
 
-    remain <- 1:(prod(p) + q)
-    for (i in 1:length(joint.beta)) {
-
-      # Order variables on corresponding eigenvector
-      if (i <= max.ei) {
-
-        order.vec <- order(abs(C.ei$vectors[i, ])) + q
-        order.vec <- order.vec[order.vec %in% remain]
-
-        if (i == 1) {
-          block.beta <- (order.vec)[1:(num.per.block[1] - q)]
-          block.beta <- c(1:q, block.beta)
-        } else {
-          block.beta <- order.vec[1:num.per.block[i]]
-        }
+    for (i in 2:(length(ends))) {
+      if (i == 2) {
+        joint.beta[[i - 1]] <- ends[i - 1]:(ends[i])
       } else {
-        if (length(remain) > 25) {
-          block.beta <- sample(remain, 25, replace = FALSE)
-        } else {block.beta <- remain}
+        joint.beta[[i - 1]] <- (ends[i - 1] + 1):(ends[i])
       }
-
-      remain <- remain[!remain %in% block.beta]
-
-      joint.beta[[i]] <- block.beta
     }
+  } else {
+    # Fix this later
+    # nc <- prod(p) + q
+    # C <- crossprod(cbind(t(apply(X, 1, "c")), U))
+    # C.ei <- eigen(C)
+    # # Get number of covariates per block
+    # num.per.block <- round(nc*C.ei$values/sum(C.ei$values), 0)
+    # # Make sure none of the blocks are too big
+    # if (!is.infinite(max.block.size)) {
+    #   num.per.block[num.per.block > max.block.size] <- max.block.size
+    # }
+    # # Decide how many groups to make
+    # max.ei <- max(which((num.per.block) >= min.block.size))
+    # num.block <- max.ei + ceiling((nc - sum(num.per.block[1:max.ei]))/min.block.size)
+    # joint.beta <- vector("list", length = num.block)
+    #
+    # remain <- 1:(nc)
+    # for (i in 1:length(joint.beta)) {
+    #
+    #   # Order variables on corresponding eigenvector
+    #   if (i <= max.ei) {
+    #
+    #     order.vec <- order(abs(C.ei$vectors[i, ]))
+    #     order.vec <- order.vec[order.vec %in% remain]
+    #
+    #     if (i == 1) {
+    #       block.beta <- (order.vec)[1:(num.per.block[1] - q)]
+    #       block.beta <- c(1:q, block.beta)
+    #     } else {
+    #       block.beta <- order.vec[1:num.per.block[i]]
+    #     }
+    #   } else {
+    #     if (length(remain) > 25) {
+    #       block.beta <- sample(remain, 25, replace = FALSE)
+    #     } else {block.beta <- remain}
+    #   }
+    #
+    #   remain <- remain[!remain %in% block.beta]
+    #
+    #   joint.beta[[i]] <- block.beta
+    # }
   }
   return(joint.beta)
 }
@@ -945,8 +957,8 @@ sampler <- function(
               UWtNUWZ <- Matrix::crossprod(Matrix::t(Matrix::crossprod(UW[, block],
                                                                        Matrix::crossprod(omeD, UW[, not.block]))), sample.beta[ not.block])
 
-            } else if ((i == 1 & reg == "linear" & max(null.Omega.half) == 0 & prior == "sno") |
-                       !(reg == "linear") | !(max(null.Omega.half) == 0) | !(prior == "sno")) {
+            } else if ((i == 1 & reg == "linear" & max(null.Omega.half) == 0 & prior == "sno" & length(joint.beta) == 1) |
+                       !(reg == "linear") | !(max(null.Omega.half) == 0) | !(prior == "sno") | length(joint.beta) > 1) {
               UWtUW <- crossprod(UW[, block])
               UWtNUWZ <- crossprod(UW[, block], crossprod(t(UW[, not.block]), sample.beta[not.block]))
 
