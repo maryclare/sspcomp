@@ -72,10 +72,11 @@ samp.Omega.inv <- function(Beta, pr.V.inv = diag(ncol(Beta)),
     V.inv <- crossprod(Beta) + pr.V.inv
     df <- nrow(Beta) + pr.df
 
-    V.half <- sym.sq.root.inv((V.inv + t(V.inv))/2)
+    # V.half <- sym.sq.root.inv((V.inv + t(V.inv))/2)
 
-    return(tcrossprod(crossprod(V.half, matrix(rnorm(p*df), nrow = p, ncol = df))))
-    # return(rWishart(1, df, solve(V.inv))[, , 1])
+    # return(tcrossprod(crossprod(V.half, matrix(rnorm(p*df), nrow = p, ncol = df))))
+
+    return(matrix(rWishart(1, df, solve(V.inv))[, , 1], nrow = p, ncol = p))
   } else if (str == "het") {
     b <- apply(Beta, 2, function(x) {sum(x^2)})/(2) + diag(pr.V.inv)/2
     a <- rep(nrow(Beta), ncol(Beta))/2 + pr.df/2
@@ -1191,7 +1192,7 @@ sampler <- function(
       Covar <- B/S
       for (l in 1:length(p)) {
         if (l != k) {
-          Covar <- amprod.mc(Covar, Omega.inv[[l]], l)
+          Covar <- amprod.mc(Covar, Omega.half.inv[[l]], l)
         }
       }
       if (k == 1 & null.Omega.half[1]) {
