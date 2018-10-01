@@ -95,10 +95,10 @@ samp.beta <- function(XtX, Xty, Omega.inv, sig.sq) {
   V.inv <- XtX/sig.sq + Omega.inv
   V.inv.eig <- eigen(V.inv/2 + Matrix::t(V.inv)/2)
   V.rt <- Matrix::tcrossprod(Matrix::tcrossprod(V.inv.eig$vectors,
-                                                diag(sqrt(ifelse(1/V.inv.eig$values > 0, 1/V.inv.eig$values, 0)), nrow = length(V.inv.eig$values), ncol = length(V.inv.eig$values))),
+                                                diag(sqrt(ifelse(V.inv.eig$values > 0, 1/V.inv.eig$values, 0)), nrow = length(V.inv.eig$values), ncol = length(V.inv.eig$values))),
                              V.inv.eig$vectors)
   V <- Matrix::tcrossprod(Matrix::tcrossprod(V.inv.eig$vectors,
-                                             diag(ifelse(1/V.inv.eig$values > 0, 1/V.inv.eig$values, 0), nrow = length(V.inv.eig$values), ncol = length(V.inv.eig$values))),
+                                             diag(ifelse(V.inv.eig$values > 0, 1/V.inv.eig$values, 0), nrow = length(V.inv.eig$values), ncol = length(V.inv.eig$values))),
                           V.inv.eig$vectors)
   m <- Matrix::crossprod(V, Xty/sig.sq)
   return(m + Matrix::crossprod(V.rt, rnorm(length(Xty))))
@@ -178,7 +178,6 @@ slice <- function(x.tilde, # Previous value of theta
 
     ll.d <- do.call(ll.fun, arg.list)
     while (z > ll.d) {
-
       if (unique(d[x.tilde == x.tilde.vals[i]]) < x.tilde.vals[i]) {
         a <- unique(d[x.tilde == x.tilde.vals[i]])
       } else {
@@ -602,6 +601,7 @@ sampler <- function(
   slice.beta = TRUE,
   joint.beta = list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))),
   use.previous = FALSE,
+  use.previous.r = use.previous,
   max.inner = 100,
   max.inner.r = max.inner,
   sep.theta = list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))),
@@ -665,8 +665,12 @@ sampler <- function(
   null.Omega.half <- unlist(lapply(Omega.half, function(x) {is.null(x)}))
 
   # Set starting values
-  null.sig.sq <- is.null(sig.sq) & prior == "sno"
-  sig.sq <- 1
+  null.sig.sq <- is.null(sig.sq) & reg == "linear"
+  if (null.sig.sq | reg == "logit") {
+    sig.sq <- 1
+  } else {
+    sig.sq <- sig.sq
+  }
 
   if (null.Omega.half[1] & dim(X.arr)[2] > 1) {
     rho <- 0
@@ -1007,7 +1011,7 @@ sampler <- function(
     if (prior == "sng" | prior == "spn" | prior == "spb") {
 
       if (null.r.tilde & null.V.r.inv) {
-        if (i == 1) {
+        if (i == 1 | !use.previous.r) {
           start.r <- rep(1, prod(p))
         } else {
           start.r <- r.tilde
@@ -1035,29 +1039,30 @@ sampler <- function(
                                   prior = prior)$r
           r.tilde <- abs(r.tilde) # Sign doesn't matter
 
-          V.r.inv <- numeric(length(r.tilde))
-          for (jj in 1:length(V.r.inv)) {
+          if (diag.app.r) {
+            V.r.inv <- numeric(length(r.tilde))
+            for (jj in 1:length(V.r.inv)) {
 
-            Omega.inv.jj <- get.kron.row(jj, Omega = Omega.inv)
-            alpha1 <- -c(B)[jj]^2*Omega.inv.jj[jj]/2
-            alpha2 <- -sum(c(B)[jj]*Omega.inv.jj[-jj]*abs(r.tilde[-jj])*c(B)[-jj])
+              Omega.inv.jj <- get.kron.row(jj, Omega = Omega.inv)
+              alpha1 <- -c(B)[jj]^2*Omega.inv.jj[jj]/2
+              alpha2 <- -sum(c(B)[jj]*Omega.inv.jj[-jj]*abs(r.tilde[-jj])*c(B)[-jj])
 
-            if (r.tilde[jj] != 0) {
-              hess <- sn.ll.dd(rj = r.tilde[jj], alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
-            } else {
-              hess <- 2*alpha1
+              if (r.tilde[jj] != 0) {
+                hess <- sn.ll.dd(rj = r.tilde[jj], alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
+              } else {
+                hess <- 2*alpha1
+              }
+              V.r.inv[jj] <- -1*hess
             }
-            V.r.inv[jj] <- -1*hess
-          }
 
-          V.r.inv[V.r.inv < 10^(-10)] <- 10^(-10) # Make sure we don't have problems with infinity/0 (should be careful about this)
-          V.r.inv[is.infinite(V.r.inv)] <- 10^(10)
-          V.r.half <- sqrt(1/V.r.inv)
+            V.r.inv[V.r.inv < 10^(-10) | is.nan(V.r.inv)] <- 10^(-10) # Make sure we don't have problems with infinity/0 (should be careful about this)
+            V.r.inv[is.infinite(V.r.inv)] <- 10^(10)
+            V.r.half <- sqrt(1/V.r.inv)
+          }
 
 
           if (print.iter) {cat("Sample R\n")}
-          # print(r.tilde)
-          # print(1/V.r.inv)
+
           sample <- sample.r.eta(r = c(R), Omega.inv = Omega.inv, beta = c(B), c = c,
                                  eta = eta,
                                  r.tilde = r.tilde, V.r.inv = V.r.inv,
@@ -1079,6 +1084,7 @@ sampler <- function(
                                   start.r = start.r,
                                   prior = prior, Psi.inv = Psi.inv)$r
 
+          if (diag.app.r) {
           V.r.inv <- numeric(length(r.tilde))
           for (jj in 1:length(V.r.inv)) {
 
@@ -1103,6 +1109,7 @@ sampler <- function(
           V.r.inv[V.r.inv < 10^(-10)] <- 10^(-10) # Make sure we don't have problems with infinity/0 (should be careful about this)
           V.r.inv[is.infinite(V.r.inv) | is.nan(V.r.inv)] <- 10^(10)
           V.r.half <- sqrt(1/V.r.inv)
+          }
 
 
           if (print.iter) {cat("Sample R\n")}
@@ -1125,6 +1132,7 @@ sampler <- function(
                                   deltas = deltas, prior = prior)$r
           r.tilde <- abs(r.tilde) # Sign doesn't matter
 
+          if (diag.app.r) {
           V.r.inv <- numeric(length(r.tilde))
           for (jj in 1:length(V.r.inv)) {
 
@@ -1143,6 +1151,7 @@ sampler <- function(
           V.r.inv[V.r.inv < 10^(-10)] <- 10^(-10) # Make sure we don't have problems with infinity/0 (should be careful about this)
           V.r.inv[is.infinite(V.r.inv)] <- 10^(10)
           V.r.half <- sqrt(1/V.r.inv)
+          }
 
           if (print.iter) {cat("Sample R\n")}
 
