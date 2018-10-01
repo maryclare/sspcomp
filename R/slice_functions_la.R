@@ -547,9 +547,9 @@ sample.r.eta <- function(r, Omega.inv, beta, c = NULL, eta, r.tilde, V.r.inv, V.
 sample.beta.theta <- function(X, U, y, V.half, beta.prev, theta, beta.tilde, Omega.inv, V.inv,
                               sig.sq, reg) {
   delta <- beta.prev - beta.tilde
-  cat("Sample d\n")
+  # cat("Sample d\n")
   d <- sample.d(V.half = V.half, theta = theta, delta = delta)
-  cat("Sample theta\n")
+  # cat("Sample theta\n")
   theta <- slice(x.tilde = theta, ll.fun = "h.log", var.lim = c(0, 2*pi),
                  ll.args = list("X" = X,
                                 "U" = U,
@@ -561,7 +561,7 @@ sample.beta.theta <- function(X, U, y, V.half, beta.prev, theta, beta.tilde, Ome
                                 "V.inv" = V.inv,
                                 "sig.sq" = sig.sq,
                                 "reg" = reg))
-  cat("Assemble beta\n")
+  # cat("Assemble beta\n")
   delta <- d$d0*sin(theta) + d$d1*cos(theta)
   return(list("theta" = theta,
               "beta" = beta.tilde + delta))
@@ -1346,7 +1346,8 @@ sampler <- function(
 
 
 #' @export
-em.est <- function(max.iter.em = NULL,
+em.est <- function(print.iter.em = TRUE,
+                   max.iter.em = NULL,
                    eps.em = 10^(-3),
                    ### Data and regression type
                    X, # Array of penalized covariates, covariance along second dimension is AR-1
@@ -1361,7 +1362,7 @@ em.est <- function(max.iter.em = NULL,
                    Psi.half = NULL,   # A dim(X) - 1 list of symmetric square roots of covariance matrices
                    sig.sq = NULL,
                    ### MCMC Parameters
-                   num.samp = 100, # Number of samples to use per EM
+                   num.samp = 100, # Number of samples to return
                    burn.in = 0, # Number of burn-in samples to discard
                    thin = 1, # Number of samples to thin by
                    print.iter = TRUE, # Indicator for whether or not iteration counter should be printed
@@ -1428,74 +1429,133 @@ em.est <- function(max.iter.em = NULL,
   if (length(num.samp) == 1) {
     num.samp <- rep(num.samp, max.iter.em + 1)
   }
-  if (print.iter) {cat("Set Starting Value\n")}
+  if (length(burn.in) == 1) {
+    burn.in <- rep(burn.in, max.iter.em + 1)
+  }
+  if (length(thin) == 1) {
+    thin <- rep(thin, max.iter.em + 1)
+  }
+  if (print.iter.em) {cat("Set Starting Value\n")}
   # Get initial values
-  samples <- sampler()
+  samples <- sampler(### Data and regression type
+    X = X, # Array of penalized covariates, covariance along second dimension is AR-1
+    y = y, # Outcome
+    reg = reg, # Regression model for data
+    U = U, # Matrix of unpenalized covariates
+    ### Prior Choice for beta
+    prior = "sno",
+    c = c,
+    ### Prior Parameters and Likelihood Parameters
+    Omega.half = Omega.half, # A dim(X) - 1 list of symmetric square roots of covariance matrices
+    Psi.half = Psi.half,   # A dim(X) - 1 list of symmetric square roots of covariance matrices
+    sig.sq = sig.sq,
+    ### MCMC Parameters
+    fix.beta = NULL, # Null if beta should not be fixed, a q + p vector otherwise
+    num.samp = num.samp[i], # Number of samples to return
+    burn.in = burn.in[i], # Number of burn-in samples to discard
+    thin = thin[i], # Number of samples to thin by
+    print.iter = print.iter, # Indicator for whether or not iteration counter should be printed
+    max.iter = max.iter, # Maximum number of outer iterations in coordinate descent for beta (and r if not max.iter.r not specified)
+    max.iter.r = max.iter.r, # Maximum number of outer iterations in coordinate descent for r
+    eps = eps, # Convergence threshold for coordinate descent beta (and r if eps.r not specified)
+    eps.r = eps.r, # Convergence threshold for coordinate descent r
+    diag.app = diag.app, # Whether or not a diagonal approximation to the covariance
+    diag.app.r = diag.app.r, #
+    from.prior = from.prior,
+    do.svd = do.svd,
+    slice.beta = slice.beta,
+    joint.beta = joint.beta,
+    use.previous = use.previous,
+    use.previous.r = use.previous.r,
+    max.inner = max.inner,
+    max.inner.r = max.inner.r,
+    sep.theta = sep.theta,
+    sep.eta = sep.eta,
+    V.inv = V.inv,
+    V.r.inv = V.r.inv,
+    z.tilde = z.tilde,
+    r.tilde = r.tilde,
+    r.start = r.start, # Starting value for MCMC for r
+    z.start = z.start,
+    gamma.start = gamma.start,
+    nu = nu, # t-distribution parameter for slice proposals for beta (and r if not specified)
+    nu.r = nu.r, # t-distribution parameter for slice proposals for r
+    ### Hyperparameters (if prior/likelihood parameters not specified)
+    pr.rho.a = pr.rho.a,
+    pr.rho.b = pr.rho.b,
+    str = "uns", # Variance-covariance matrix type
+    pr.Omega.V.inv = pr.Omega.V.inv,
+    pr.Psi.V.inv = pr.Psi.V.inv,
+    pr.Omega.df = pr.Omega.df,
+    pr.Psi.df = pr.Psi.df,
+    pr.sig.sq.shape = pr.sig.sq.shape,
+    pr.sig.sq.rate = pr.sig.sq.rate)
   post.mean <- c(colMeans(samples$gammas), colMeans(samples$Bs))
   post.median <- c(apply(samples$gammas, 2, median), apply(samples$Bs, 2, median))
 
-  fix.beta = TRUE;
-  beta.fix <- post.mean
+  beta.fix <- post.median
 
   betas <- matrix(nrow = max.iter.em, ncol = prod(dim(X)[-1]) + ifelse(is.null(U), 0, ncol(U)))
 
   for (i in 1:max.iter.em) {
 
-    if (print.iter) {cat("EM Iteration: ", i, "\n")}
+    if (print.iter.em) {cat("EM Iteration: ", i, "\n")}
 
     beta.fix[beta.fix == 0] <- rnorm(sum(beta.fix == 0))
 
-    samples <- sampler(X = X, # Array of penalized covariates, covariance along second dimension is AR-1
-                            y = y, # Outcome
-                            reg = reg, # Regression model for data
-                            U = U, # Matrix of unpenalized covariates
-                            ### Prior Choice for beta
-                            prior = prior,
-                            c = c,
-                            ### Prior Parameters and Likelihood Parameters
-                            Omega.half = Omega.half, # A dim(X) - 1 list of symmetric square roots of covariance matrices
-                            Psi.half = Psi.half,   # A dim(X) - 1 list of symmetric square roots of covariance matrices
-                            sig.sq = sig.sq,
-                            ### MCMC Parameters
-                            fix.beta = beta.fix, # Null if beta should not be fixed, a q + p vector otherwise
-                            num.samp = num.samp, # Number of samples to return
-                            burn.in = burn.in, # Number of burn-in samples to discard
-                            thin = thin, # Number of samples to thin by
-                            print.iter = print.iter, # Indicator for whether or not iteration counter should be printed
-                            max.iter = max.iter, # Maximum number of outer iterations in coordinate descent for beta (and r if not max.iter.r not specified)
-                            max.iter.r = max.iter.r, # Maximum number of outer iterations in coordinate descent for r
-                            eps = eps, # Convergence threshold for coordinate descent beta (and r if eps.r not specified)
-                            eps.r = eps.r, # Convergence threshold for coordinate descent r
-                            diag.app = diag.app, # Whether or not a diagonal approximation to the covariance
-                            diag.app.r = diag.app.r, #
-                            from.prior = from.prior,
-                            do.svd = do.svd,
-                            slice.beta = slice.beta,
-                            joint.beta = joint.beta,
-                            use.previous = use.previous,
-                            max.inner = max.inner,
-                            max.inner.r = max.inner.r,
-                            sep.theta = sep.theta,
-                            sep.eta = sep.eta,
-                            V.inv = V.inv,
-                            V.r.inv = V.r.inv,
-                            z.tilde = z.tilde,
-                            r.tilde = r.tilde,
-                            r.start = r.start, # Starting value for MCMC for r
-                            z.start = z.start,
-                            gamma.start = gamma.start,
-                            nu = nu, # t-distribution parameter for slice proposals for beta (and r if not specified)
-                            nu.r = nu.r, # t-distribution parameter for slice proposals for r
-                            ### Hyperparameters (if prior/likelihood parameters not specified)
-                            pr.rho.a = pr.rho.a,
-                            pr.rho.b = pr.rho.b,
-                            str = str, # Variance-covariance matrix type
-                            pr.Omega.V.inv = pr.Omega.V.inv,
-                            pr.Psi.V.inv = pr.Psi.V.inv,
-                            pr.Omega.df = pr.Omega.df,
-                            pr.Psi.df = pr.Psi.df,
-                            pr.sig.sq.shape = pr.sig.sq.shape,
-                            pr.sig.sq.rate = pr.sig.sq.rate)
+    samples <- sampler(### Data and regression type
+      X = X, # Array of penalized covariates, covariance along second dimension is AR-1
+      y = y, # Outcome
+      reg = reg, # Regression model for data
+      U = U, # Matrix of unpenalized covariates
+      ### Prior Choice for beta
+      prior = prior,
+      c = c,
+      ### Prior Parameters and Likelihood Parameters
+      Omega.half = Omega.half, # A dim(X) - 1 list of symmetric square roots of covariance matrices
+      Psi.half = Psi.half,   # A dim(X) - 1 list of symmetric square roots of covariance matrices
+      sig.sq = sig.sq,
+      ### MCMC Parameters
+      fix.beta = beta.fix, # Null if beta should not be fixed, a q + p vector otherwise
+      num.samp = num.samp[i], # Number of samples to return
+      burn.in = burn.in[i], # Number of burn-in samples to discard
+      thin = thin[i], # Number of samples to thin by
+      print.iter = print.iter, # Indicator for whether or not iteration counter should be printed
+      max.iter = max.iter, # Maximum number of outer iterations in coordinate descent for beta (and r if not max.iter.r not specified)
+      max.iter.r = max.iter.r, # Maximum number of outer iterations in coordinate descent for r
+      eps = eps, # Convergence threshold for coordinate descent beta (and r if eps.r not specified)
+      eps.r = eps.r, # Convergence threshold for coordinate descent r
+      diag.app = diag.app, # Whether or not a diagonal approximation to the covariance
+      diag.app.r = diag.app.r, #
+      from.prior = from.prior,
+      do.svd = do.svd,
+      slice.beta = slice.beta,
+      joint.beta = joint.beta,
+      use.previous = use.previous,
+      use.previous.r = use.previous.r,
+      max.inner = max.inner,
+      max.inner.r = max.inner.r,
+      sep.theta = sep.theta,
+      sep.eta = sep.eta,
+      V.inv = V.inv,
+      V.r.inv = V.r.inv,
+      z.tilde = z.tilde,
+      r.tilde = r.tilde,
+      r.start = r.start, # Starting value for MCMC for r
+      z.start = z.start,
+      gamma.start = gamma.start,
+      nu = nu, # t-distribution parameter for slice proposals for beta (and r if not specified)
+      nu.r = nu.r, # t-distribution parameter for slice proposals for r
+      ### Hyperparameters (if prior/likelihood parameters not specified)
+      pr.rho.a = pr.rho.a,
+      pr.rho.b = pr.rho.b,
+      str = "uns", # Variance-covariance matrix type
+      pr.Omega.V.inv = pr.Omega.V.inv,
+      pr.Psi.V.inv = pr.Psi.V.inv,
+      pr.Omega.df = pr.Omega.df,
+      pr.Psi.df = pr.Psi.df,
+      pr.sig.sq.shape = pr.sig.sq.shape,
+      pr.sig.sq.rate = pr.sig.sq.rate)
     if (prior != "spn") {
       inv.ss <- matrix(rowMeans(apply(samples$Ss, 1, function(x) {tcrossprod(1/abs(x))})), nrow = prod(p), ncol = prod(p))
     } else {
@@ -1521,7 +1581,7 @@ em.est <- function(max.iter.em = NULL,
     }
 
     if (i > 1) {
-      if (mean(abs(betas[i - 1, ] - betas[i, ])) < eps.em) {
+      if (max(abs(betas[i - 1, ] - betas[i, ])) < eps.em) {
         break
       }
     }
