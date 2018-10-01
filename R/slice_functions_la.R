@@ -72,11 +72,11 @@ samp.Omega.inv <- function(Beta, pr.V.inv = diag(ncol(Beta)),
     V.inv <- crossprod(Beta) + pr.V.inv
     df <- nrow(Beta) + pr.df
 
-    # V.half <- sym.sq.root.inv((V.inv + t(V.inv))/2)
+    V.half <- sym.sq.root.inv((V.inv + t(V.inv))/2)
 
-    # return(tcrossprod(crossprod(V.half, matrix(rnorm(p*df), nrow = p, ncol = df))))
+    return(tcrossprod(crossprod(V.half, matrix(rnorm(p*df), nrow = p, ncol = df))))
 
-    return(matrix(rWishart(1, df, solve(V.inv))[, , 1], nrow = p, ncol = p))
+    # return(matrix(rWishart(1, df, solve(V.inv))[, , 1], nrow = p, ncol = p))
   } else if (str == "het") {
     b <- apply(Beta, 2, function(x) {sum(x^2)})/(2) + diag(pr.V.inv)/2
     a <- rep(nrow(Beta), ncol(Beta))/2 + pr.df/2
