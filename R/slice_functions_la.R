@@ -1,5 +1,5 @@
 #' @export
-get.beta.blocks <- function(X, U = NULL, min.block.size = 25, max.block.size = Inf, no.eig = TRUE) {
+get.beta.blocks <- function(X, U = NULL, min.block.size = 25, no.eig = TRUE) {
 
   p <- dim(X)[-1]
   if (is.null(U)) {
@@ -21,46 +21,42 @@ get.beta.blocks <- function(X, U = NULL, min.block.size = 25, max.block.size = I
     }
   } else {
     # Fix this later
-    # nc <- prod(p) + q
-    # C <- crossprod(cbind(t(apply(X, 1, "c")), U))
-    # C.ei <- eigen(C)
-    # # Get number of covariates per block
-    # num.per.block <- round(nc*C.ei$values/sum(C.ei$values), 0)
-    # # Make sure none of the blocks are too big
-    # if (!is.infinite(max.block.size)) {
-    #   num.per.block[num.per.block > max.block.size] <- max.block.size
-    # }
-    # # Decide how many groups to make
-    # max.ei <- max(which((num.per.block) >= min.block.size))
-    # num.block <- max.ei + ceiling((nc - sum(num.per.block[1:max.ei]))/min.block.size)
-    # joint.beta <- vector("list", length = num.block)
-    #
-    # remain <- 1:(nc)
-    # for (i in 1:length(joint.beta)) {
-    #
-    #   # Order variables on corresponding eigenvector
-    #   if (i <= max.ei) {
-    #
-    #     order.vec <- order(abs(C.ei$vectors[i, ]))
-    #     order.vec <- order.vec[order.vec %in% remain]
-    #
-    #     if (i == 1) {
-    #       block.beta <- (order.vec)[1:(num.per.block[1] - q)]
-    #       block.beta <- c(1:q, block.beta)
-    #     } else {
-    #       block.beta <- order.vec[1:num.per.block[i]]
-    #     }
-    #   } else {
-    #     if (length(remain) > 25) {
-    #       block.beta <- sample(remain, 25, replace = FALSE)
-    #     } else {block.beta <- remain}
-    #   }
-    #
-    #   remain <- remain[!remain %in% block.beta]
-    #
-    #   joint.beta[[i]] <- block.beta
-    # }
-  }
+    nc <- prod(p) + q
+    if (!is.null(U)) {
+      C <- crossprod(cbind(t(apply(X, 1, "c")), U))
+    } else {
+      C <- crossprod(cbind(t(apply(X, 1, "c"))))
+    }
+    C.ei <- eigen(C)
+    # Get number of covariates per block
+    num.per.block <- round(nc*C.ei$values/sum(C.ei$values), 0)
+    # Decide how many groups to make
+    max.ei <- max(which((num.per.block) > 0))
+    num.block <- max.ei + (nc - sum(num.per.block[1:max.ei]))
+    new.num.per.block <- numeric(num.block)
+    new.num.per.block[1:max.ei] <- num.per.block[1:max.ei]
+    new.num.per.block[(max.ei + 1):length(new.num.per.block)] <- 1
+    num.per.block <- new.num.per.block
+    joint.beta <- vector("list", length = num.block)
+
+    remain <- 1:(nc)
+    for (i in 1:max.ei) {
+
+        order.vec <- order(abs(C.ei$vectors[i, ]), decreasing = FALSE)
+        order.vec <- order.vec[order.vec %in% remain]
+
+        block.beta <- order.vec[1:num.per.block[i]]
+
+        remain <- remain[!remain %in% block.beta]
+
+        joint.beta[[i]] <- block.beta
+
+    }
+    for (i in 1:length(remain)) {
+      joint.beta[[max.ei + i]] <- remain[i]
+    }
+
+    }
   return(joint.beta)
 }
 
@@ -1365,8 +1361,7 @@ em.est <- function(max.iter.em = NULL,
                    Psi.half = NULL,   # A dim(X) - 1 list of symmetric square roots of covariance matrices
                    sig.sq = NULL,
                    ### MCMC Parameters
-                   fix.beta = NULL, # Null if beta should not be fixed, a q + p vector otherwise
-                   num.samp = 100, # Number of samples to return
+                   num.samp = 100, # Number of samples to use per EM
                    burn.in = 0, # Number of burn-in samples to discard
                    thin = 1, # Number of samples to thin by
                    print.iter = TRUE, # Indicator for whether or not iteration counter should be printed
@@ -1381,6 +1376,7 @@ em.est <- function(max.iter.em = NULL,
                    slice.beta = TRUE,
                    joint.beta = list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))),
                    use.previous = FALSE,
+                   use.previous.r = use.previous,
                    max.inner = 100,
                    max.inner.r = max.inner,
                    sep.theta = list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))),
