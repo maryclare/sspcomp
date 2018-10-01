@@ -714,6 +714,7 @@ sampler <- function(
   if (prior == "spn") {
     Psi <- lapply(Psi.half, function(x) {crossprod(x)})
     Psi.inv <- lapply(Psi, function(x) {ei.inv(x)})
+    Psi.half.inv <- lapply(Psi.half, function(x) {ei.inv(x)})
   }
 
   # No intercept if U is null
@@ -1225,7 +1226,7 @@ sampler <- function(
         Covar <- S
         for (l in 1:length(p)) {
           if (l != k) {
-            Covar <- amprod.mc(Covar, Psi.inv[[l]], l)
+            Covar <- amprod.mc(Covar, Psi.half.inv[[l]], l)
           }
         }
 
@@ -1244,10 +1245,12 @@ sampler <- function(
                                          pr.df = pr.Psi.df[[k]])
         }
         Psi[[k]] <- ei.inv(Psi.inv[[k]])
+        Psi.half[[k]] <- sym.sq.root(Psi[[k]])
+        Psi.half.inv[[k]] <- sym.sq.root(Psi.inv[[k]])
+
         if (i > burn.in & (i - burn.in)%%thin == 0 & k != 1) {
           res.Psi[[k]][(i - burn.in)/thin, , ] <- Psi[[k]]
         }
-        Psi.half[[k]] <- sym.sq.root(Psi[[k]])
       }
 
       if (reg == "linear" & null.sig.sq) {
