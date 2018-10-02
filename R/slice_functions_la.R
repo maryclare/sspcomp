@@ -425,9 +425,17 @@ h.log.r.sng <- function(theta, d0, d1, Omega.inv, beta, c, r.tilde, V.r.inv, nu 
   val <- -sum(c(atrans.mc(array(beta/s, dim = p), Omega.inv))*(beta/s))/2 -
     sum(log(s)) + (2*c - 1)*sum(log(s)) - sum(c*s^(2))
   if (is.null(nu)) {
-    val <- val + sum((r - r.tilde)^2*V.r.inv/2)
+    if (is.vector(V.r.inv)) {
+      val <- val + sum((r - r.tilde)^2*V.r.inv/2)
+    } else if (is.matrix(V.r.inv)) {
+      val <- val + crossprod((r - r.tilde), crossprod(V.r.inv, (r - r.tilde)))/2
+    }
   } else {
-    val <- val + sum((nu + 1)*log(1 + (r - r.tilde)^2*V.r.inv/nu)/2)
+    if (is.vector(V.r.inv)) {
+      val <- val + sum((nu + 1)*log(1 + (r - r.tilde)^2*V.r.inv/nu)/2)
+    } else if (is.matrix(V.r.inv)) {
+      val <- val + sum((nu + 1)*log(1 + crossprod((r - r.tilde), crossprod(V.r.inv, (r - r.tilde)))/nu)/2)
+    }
   }
   return(val)
 
@@ -447,9 +455,17 @@ h.log.r.spb <- function(theta, d0, d1, Omega.inv, beta, c, r.tilde = NULL, V.r.i
 
   val <- -sum(c(atrans.mc(array(beta/s, dim = p), Omega.inv))*(beta/s))/2 - sum(log(s)) + ((1 + alpha)/(1 - alpha) - 1)*sum(log(s)) - sum(multip*s^(2*alpha/(1 - alpha)))
   if (is.null(nu)) {
-    val <- val + sum((r - r.tilde)^2*V.r.inv/2)
+    if (is.vector(V.r.inv)) {
+      val <- val + sum((r - r.tilde)^2*V.r.inv/2)
+    } else if (is.matrix(V.r.inv)) {
+      val <- val + crossprod((r - r.tilde), crossprod(V.r.inv, (r - r.tilde)))/2
+    }
   } else {
-    val <- val + sum((nu + 1)*log(1 + (r - r.tilde)^2*V.r.inv/nu)/2)
+    if (is.vector(V.r.inv)) {
+      val <- val + sum((nu + 1)*log(1 + (r - r.tilde)^2*V.r.inv/nu)/2)
+    } else if (is.matrix(V.r.inv)) {
+      val <- val + sum((nu + 1)*log(1 + crossprod((r - r.tilde), crossprod(V.r.inv, (r - r.tilde)))/nu)/2)
+    }
   }
   return(val)
 
@@ -467,20 +483,33 @@ h.log.r.spn <- function(theta, d0, d1, Omega.inv, beta, Psi.inv, r.tilde, V.r.in
   val <- -sum(c(atrans.mc(array(beta/s, dim = p), Omega.inv))*(beta/s))/2 - sum(log(abs(s))) - sum(c(atrans.mc(array(s, dim = p), Psi.inv))*(s))/2
 
   if (is.null(nu)) {
-    val <- val + sum((r - r.tilde)^2*V.r.inv/2)
+    if (is.vector(V.r.inv)) {
+      val <- val + sum((r - r.tilde)^2*V.r.inv/2)
+    } else if (is.matrix(V.r.inv)) {
+      val <- val + crossprod((r - r.tilde), crossprod(V.r.inv, (r - r.tilde)))/2
+    }
   } else {
-    val <- val + sum((nu + 1)*log(1 + (r - r.tilde)^2*V.r.inv/nu)/2)
+    if (is.vector(V.r.inv)) {
+      val <- val + sum((nu + 1)*log(1 + (r - r.tilde)^2*V.r.inv/nu)/2)
+    } else if (is.matrix(V.r.inv)) {
+      val <- val + sum((nu + 1)*log(1 + crossprod((r - r.tilde), crossprod(V.r.inv, (r - r.tilde)))/nu)/2)
+    }
   }
   return(val)
 
 }
 
-sample.d <- function(theta, delta, V.half, nu = NULL) {
+sample.d <- function(theta, delta, V.half, V.r.inv = NULL, nu = NULL) {
 
   if (is.null(nu)) {
     precisions <- 1
   } else {
-    precisions <- rgamma(length(delta), (nu + 1)/2, (nu + (delta/V.half)^2)/2)
+    if (is.vector(V.half)) {
+      precisions <- rgamma(length(delta), (nu + 1)/2, (nu + (delta/V.half)^2)/2)
+    } else if (is.matrix(V.half)) {
+      precisions <- rgamma(1, (nu + 1)/2, (nu + crossprod(delta, crossprod(V.r.inv, delta)))/2)
+    }
+
   }
   V.half <- V.half/sqrt(precisions)
 
@@ -505,7 +534,7 @@ sample.d <- function(theta, delta, V.half, nu = NULL) {
 sample.r.eta <- function(r, Omega.inv, beta, c = NULL, eta, r.tilde, V.r.inv, V.r.half, prior, Psi.inv = NULL,
                          q = NULL, deltas = NULL, nu = NULL) {
   delta <- r - r.tilde
-  d <- sample.d(V.half = V.r.half, theta = eta, delta = delta, nu = nu)
+  d <- sample.d(V.half = V.r.half, V.r.inv = V.r.inv, theta = eta, delta = delta, nu = nu)
   if (prior == "sng") {
     ll.args <- list("d0" = d$d0,
                     "d1" = d$d1,
@@ -548,7 +577,7 @@ sample.beta.theta <- function(X, U, y, V.half, beta.prev, theta, beta.tilde, Ome
                               sig.sq, reg) {
   delta <- beta.prev - beta.tilde
   # cat("Sample d\n")
-  d <- sample.d(V.half = V.half, theta = theta, delta = delta)
+  d <- sample.d(V.half = V.half, V.inv = V.inv, theta = theta, delta = delta)
   # cat("Sample theta\n")
   theta <- slice(x.tilde = theta, ll.fun = "h.log", var.lim = c(0, 2*pi),
                  ll.args = list("X" = X,
@@ -1024,20 +1053,24 @@ sampler <- function(
         # V.r.inv <- c(B)^2*Omega.inv.diag
 
         if (prior == "sng") {
-          if (print.iter) {cat("Set Sampling Values for R\n")}
+
 
           kappa1 <- 1 - 2*c
           kappa2 <- -c
           kappa3 <- -1
 
-          r.tilde <- coord.desc.r(Omega.inv = Omega.inv,
-                                  beta = c(B), c = c, eps = eps.r, max.iter = max.iter.r,
-                                  print.iter = FALSE, max.inner = max.inner.r,
-                                  start.r = start.r,
-                                  prior = prior)$r
-          r.tilde <- abs(r.tilde) # Sign doesn't matter
+          # if (i == 1 | (is.null(fix.beta) | max(null.Omega.half) == 1)) {
+            if (print.iter) {cat("Set Sampling Values for R\n")}
+            r.tilde <- coord.desc.r(Omega.inv = Omega.inv,
+                                    beta = c(B), c = c, eps = eps.r, max.iter = max.iter.r,
+                                    print.iter = FALSE, max.inner = max.inner.r,
+                                    start.r = start.r,
+                                    prior = prior)$r
+          # }
+
 
           if (diag.app.r) {
+            r.tilde <- abs(r.tilde) # Sign doesn't matter
             V.r.inv <- numeric(length(r.tilde))
             for (jj in 1:length(V.r.inv)) {
 
@@ -1056,6 +1089,20 @@ sampler <- function(
             V.r.inv[V.r.inv < 10^(-10) | is.nan(V.r.inv)] <- 10^(-10) # Make sure we don't have problems with infinity/0 (should be careful about this)
             V.r.inv[is.infinite(V.r.inv)] <- 10^(10)
             V.r.half <- sqrt(1/V.r.inv)
+          } else {
+            # print(range(abs(r.tilde)))
+            r.tilde <- abs(r.tilde + ifelse(r.tilde == 0, 10^(-12), r.tilde)) # Sign doesn't matter
+            if (i == 1 | max(null.Omega.half) == 1) {
+              O.i <- do.call("%x%", Omega.inv[length(Omega.inv):1])
+            }
+            V.r.inv <- -1*((-1/2)*(O.i)*tcrossprod(c(B)/r.tilde^2)*(matrix(1,
+                                                                           nrow = length(r.tilde),
+                                                                           ncol = length(r.tilde)) +
+                                                                      5*diag(length(r.tilde))) +
+                             diag(1/(r.tilde)^2 + -(2*c - 1)*1/(r.tilde)^2 - 2*c))
+
+            V.r.half <- sym.sq.root.inv(V.r.inv)
+            V.r.inv <- ei.inv(crossprod(V.r.half)) # Make sure it's pos-semi-def
           }
 
 
@@ -1068,19 +1115,22 @@ sampler <- function(
                                  prior = prior, nu = nu.r)
 
         } else if (prior == "spn") {
-          if (print.iter) {cat("Set Sampling Values for R\n")}
 
-          Psi.inv.diag <- rep(diag(Psi.inv[[1]]), times = prod(p[-1]))
-          for (k in 2:length(p)) {
-            Psi.inv.diag <- rep(diag(Psi.inv[[k]]), each = prod(p[1:(k - 1)]))*Psi.inv.diag
+          if (i == 1 | max(null.Omega.half)==1) {
+            Psi.inv.diag <- rep(diag(Psi.inv[[1]]), times = prod(p[-1]))
+            for (k in 2:length(p)) {
+              Psi.inv.diag <- rep(diag(Psi.inv[[k]]), each = prod(p[1:(k - 1)]))*Psi.inv.diag
+            }
           }
 
-
-          r.tilde <- coord.desc.r(Omega.inv = Omega.inv,
-                                  beta = c(B), c = c, eps = eps.r, max.iter = max.iter.r,
-                                  print.iter = FALSE, max.inner = max.inner.r,
+          # if (i == 1 | (is.null(fix.beta) | max(null.Omega.half) == 1)) {
+            if (print.iter) {cat("Set Sampling Values for R\n")}
+            r.tilde <- coord.desc.r(Omega.inv = Omega.inv,
+                                    beta = c(B), c = c, eps = eps.r, max.iter = max.iter.r,
+                                    print.iter = FALSE, max.inner = max.inner.r,
                                   start.r = start.r,
                                   prior = prior, Psi.inv = Psi.inv)$r
+          # }
 
           if (diag.app.r) {
           V.r.inv <- numeric(length(r.tilde))
@@ -1107,6 +1157,21 @@ sampler <- function(
           V.r.inv[V.r.inv < 10^(-10)] <- 10^(-10) # Make sure we don't have problems with infinity/0 (should be careful about this)
           V.r.inv[is.infinite(V.r.inv) | is.nan(V.r.inv)] <- 10^(10)
           V.r.half <- sqrt(1/V.r.inv)
+          } else {
+            # print(range(abs(r.tilde)))
+            r.tilde <- abs(r.tilde + ifelse(r.tilde == 0, 10^(-12), r.tilde)) # Sign doesn't matter
+            if (i == 1 | max(null.Omega.half) == 1) {
+              O.i <- do.call("%x%", Omega.inv[length(Omega.inv):1])
+              P.i <- do.call("%x%", Psi.inv[length(Psi.inv):1])
+            }
+            V.r.inv <- -1*((-1/2)*(O.i)*tcrossprod(c(B)/r.tilde^2)*(matrix(1,
+                                                                           nrow = length(r.tilde),
+                                                                           ncol = length(r.tilde)) +
+                                                                      5*diag(length(r.tilde))) +
+                             - diag(-1/abs(r.tilde)^2) - P.i/2)
+
+            V.r.half <- sym.sq.root.inv(V.r.inv)
+            V.r.inv <- ei.inv(crossprod(V.r.half)) # Make sure it's pos-semi-def
           }
 
 
@@ -1117,7 +1182,7 @@ sampler <- function(
         } else if (prior == "spb") {
 
 
-          if (print.iter) {cat("Set Sampling Values for R\n")}
+          if (print.iter) {cat("Set Sampling Values for R\n")} # Have to do every iteration
 
           kappa1 <- 2*(c/2)/(c/2 - 1)
           kappa2 <- -(((2*gamma(3/c))/gamma(1/c))^(c/2/(1 - c/2))*f.deltas(deltas = deltas, c = c))
@@ -1149,6 +1214,22 @@ sampler <- function(
           V.r.inv[V.r.inv < 10^(-10)] <- 10^(-10) # Make sure we don't have problems with infinity/0 (should be careful about this)
           V.r.inv[is.infinite(V.r.inv)] <- 10^(10)
           V.r.half <- sqrt(1/V.r.inv)
+          } else {
+
+            r.tilde <- abs(r.tilde + ifelse(r.tilde == 0, 10^(-12), r.tilde)) # Sign doesn't matter
+            if (i == 1 | max(null.Omega.half) == 1) {
+              O.i <- do.call("%x%", Omega.inv[length(Omega.inv):1])
+            }
+            multip <- (((2*gamma(3/c))/gamma(1/c))^((c/2)/(1 - (c/2)))*f.deltas(deltas = deltas, c = c))
+            V.r.inv <- -1*((-1/2)*(O.i)*tcrossprod(c(B)/r.tilde^2)*(matrix(1,
+                                                                           nrow = length(r.tilde),
+                                                                           ncol = length(r.tilde)) +
+                                                                      5*diag(length(r.tilde))) +
+                             - diag(-1/abs(r.tilde)^2 + multip*((2*(c/2)/(1 - (c/2))))*((2*(c/2)/(1 - (c/2))) - 1)*r.tilde^(2*(c/2)/(1 - (c/2)) - 2)) + diag(-((1 + (c/2))/(1 - (c/2)) - 1)/r.tilde^2))
+
+            V.r.half <- sym.sq.root.inv(V.r.inv)
+            V.r.inv <- ei.inv(crossprod(V.r.half)) # Make sure it's pos-semi-def
+
           }
 
           if (print.iter) {cat("Sample R\n")}
@@ -1413,10 +1494,7 @@ em.est <- function(print.iter.em = TRUE,
   penC <- matrix(0, nrow = ncol(UW), ncol = ncol(UW))
 
   Omega.inv <- lapply(Omega.half, function(x) {ei.inv(crossprod(x))})
-  O.i <- matrix(1, nrow = 1, ncol = 1)
-  for (i in 1:length(Omega.inv)) {
-    O.i <- Omega.inv[[i]]%x%O.i
-  }
+  O.i <- do.call("%x%", Omega.inv[length(Omega.inv):1])
 
   fix.beta = FALSE;
   if (is.null(max.iter.em)) {
@@ -1451,9 +1529,9 @@ em.est <- function(print.iter.em = TRUE,
     sig.sq = sig.sq,
     ### MCMC Parameters
     fix.beta = NULL, # Null if beta should not be fixed, a q + p vector otherwise
-    num.samp = num.samp[i], # Number of samples to return
-    burn.in = burn.in[i], # Number of burn-in samples to discard
-    thin = thin[i], # Number of samples to thin by
+    num.samp = num.samp[1], # Number of samples to return
+    burn.in = burn.in[1], # Number of burn-in samples to discard
+    thin = thin[1], # Number of samples to thin by
     print.iter = print.iter, # Indicator for whether or not iteration counter should be printed
     max.iter = max.iter, # Maximum number of outer iterations in coordinate descent for beta (and r if not max.iter.r not specified)
     max.iter.r = max.iter.r, # Maximum number of outer iterations in coordinate descent for r
@@ -1496,6 +1574,7 @@ em.est <- function(print.iter.em = TRUE,
   beta.fix <- post.median
 
   betas <- matrix(nrow = max.iter.em, ncol = prod(dim(X)[-1]) + ifelse(is.null(U), 0, ncol(U)))
+  ess <- matrix(nrow = max.iter.em, ncol = prod(dim(X)[-1]))
 
   for (i in 1:max.iter.em) {
 
@@ -1517,9 +1596,9 @@ em.est <- function(print.iter.em = TRUE,
       sig.sq = sig.sq,
       ### MCMC Parameters
       fix.beta = beta.fix, # Null if beta should not be fixed, a q + p vector otherwise
-      num.samp = num.samp[i], # Number of samples to return
-      burn.in = burn.in[i], # Number of burn-in samples to discard
-      thin = thin[i], # Number of samples to thin by
+      num.samp = num.samp[i + 1], # Number of samples to return
+      burn.in = burn.in[i + 1], # Number of burn-in samples to discard
+      thin = thin[i + 1], # Number of samples to thin by
       print.iter = print.iter, # Indicator for whether or not iteration counter should be printed
       max.iter = max.iter, # Maximum number of outer iterations in coordinate descent for beta (and r if not max.iter.r not specified)
       max.iter.r = max.iter.r, # Maximum number of outer iterations in coordinate descent for r
@@ -1579,6 +1658,7 @@ em.est <- function(print.iter.em = TRUE,
     } else {
       betas[i, ] <- beta.fix
     }
+    ess[i, ] <- coda::effectiveSize(samples$Ss)
 
     if (i > 1) {
       if (max(abs(betas[i - 1, ] - betas[i, ])) < eps.em) {
@@ -1592,7 +1672,8 @@ em.est <- function(print.iter.em = TRUE,
     post.median <- post.median[-1]
   }
 
-  return(list("post.mean" = post.mean, "post.med" = post.median, betas = betas[1:i, ]))
+  return(list("post.mean" = post.mean, "post.med" = post.median, betas = betas[1:i, ],
+              esss = ess[1:i, ]))
 
 }
 
