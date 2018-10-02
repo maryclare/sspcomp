@@ -688,6 +688,10 @@ sampler <- function(
   X <- t(apply(X, 1, "c"))
 
   # Set up indicators for null arguments, will be used to decide whether or not to resample
+  # Automaticall set
+  if (is.null(Omega.half)[[1]] & str == "con") {
+    Omega.half[[1]] <- diag(p[1])
+  }
   null.Omega.half <- unlist(lapply(Omega.half, function(x) {is.null(x)}))
 
   # Set starting values
