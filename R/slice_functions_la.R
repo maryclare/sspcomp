@@ -690,6 +690,9 @@ sampler <- function(
   # Set up indicators for null arguments, will be used to decide whether or not to resample
   if (is.null(Omega.half[[1]]) & str == "con" | str == "het") {
     Omega.half[[1]] <- diag(p[1], nrow = p[1], ncol = p[1])
+    if (prior == "spn") {
+      Psi.half[[1]] <- diag(p[1], nrow = p[1], ncol = p[1])
+    }
   }
   null.Omega.half <- unlist(lapply(Omega.half, function(x) {is.null(x)}))
 
