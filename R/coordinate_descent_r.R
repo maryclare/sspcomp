@@ -49,30 +49,34 @@ coord.desc.r <- function(Omega.inv, beta, c = NULL, eps = 10^(-12), max.iter = 1
 
       r.old <- r
 
+      Omega.inv.j <- get.kron.row(j, Omega = Omega.inv)
+      alpha1 <- -beta[j]^2*Omega.inv.j[j]/2
+      alpha2 <- -sum(beta[j]*Omega.inv.j[-j]*abs(r[-j])*beta[-j])
+
+      if (prior %in% c("spb", "sng")) {
+        kappa1 <- ifelse(prior == "spb", 2*(c/2)/(c/2 - 1), 1 - 2*c)
+        kappa2 <- ifelse(prior == "spb", -(((2*gamma(3/c))/gamma(1/c))^(c/2/(1 - c/2))*f.deltas(deltas = deltas[j], c = c)) , -c)
+        kappa3 <- ifelse(prior == "spb", c/2/(c/2 - 1), -1)
+      } else {
+        Psi.inv.j <- get.kron.row(j, Omega = Psi.inv)
+
+        kappa1 <- 1/2
+        kappa2 <- -Psi.inv.j[j]/2
+        kappa3 <- -sum(Psi.inv.j[-j]/r[-j])
+      }
+
+      if (prior == "spb") {
       # Newton Raphson
       diff <- Inf
       inner <- 1
       reset <- 1
       while(abs(diff) > eps & inner <= max.inner) {
 
-        Omega.inv.j <- get.kron.row(j, Omega = Omega.inv)
-        alpha1 <- -beta[j]^2*Omega.inv.j[j]/2
-        alpha2 <- -sum(beta[j]*Omega.inv.j[-j]*abs(r[-j])*beta[-j])
-
         if (prior %in% c("spb", "sng")) {
-          kappa1 <- ifelse(prior == "spb", 2*(c/2)/(c/2 - 1), 1 - 2*c)
-          kappa2 <- ifelse(prior == "spb", -(((2*gamma(3/c))/gamma(1/c))^(c/2/(1 - c/2))*f.deltas(deltas = deltas[j], c = c)) , -c)
-          kappa3 <- ifelse(prior == "spb", c/2/(c/2 - 1), -1)
 
           hess <- sn.ll.dd(rj = r[j], alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
           grad <- sn.ll.d(rj = r[j], alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
         } else if (prior == "spn") {
-
-          Psi.inv.j <- get.kron.row(j, Omega = Psi.inv)
-
-          kappa1 <- 1/2
-          kappa2 <- -Psi.inv.j[j]/2
-          kappa3 <- -sum(Psi.inv.j[-j]/r[-j])
 
           hess <- sp.ll.dd(rj = r[j], alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
           grad <- sp.ll.d(rj = r[j], alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
@@ -94,6 +98,30 @@ coord.desc.r <- function(Omega.inv, beta, c = NULL, eps = 10^(-12), max.iter = 1
         }
 
         r.old <- r
+
+      }
+      } else if (prior == "sng") {
+
+        poly <- polynomial(c(-2*alpha1, -alpha2, -(kappa1 + 1), 0, 2*kappa2))
+        sol <- solve(poly)
+        sol <- Re(sol[Im(sol) == 0])
+        sol <- sol[sol > 0]
+        if (length(sol) > 1) {
+          sol.val <- sn.ll(rj = sol, alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
+          sol <- sol[which(sol.val == max(sol.val, na.rm = TRUE))]
+        }
+        r[j] <- sol[1]
+
+      } else {
+
+        poly <- polynomial(c(-2*alpha1, -alpha2, -1, kappa3, 2*kappa2))
+        sol <- solve(poly)
+        sol <- Re(sol[Im(sol) == 0])
+        if (length(sol) > 1) {
+          sol.val <- sn.ll(rj = sol, alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
+          sol <- sol[which(sol.val == max(sol.val, na.rm = TRUE))]
+        }
+        r[j] <- sol[1]
 
       }
     }

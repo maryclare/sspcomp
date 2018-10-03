@@ -1072,6 +1072,7 @@ sampler <- function(
                                     print.iter = FALSE, max.inner = max.inner.r,
                                     start.r = start.r,
                                     prior = prior)$r
+
           # }
 
 
@@ -1136,6 +1137,7 @@ sampler <- function(
                                     print.iter = FALSE, max.inner = max.inner.r,
                                   start.r = start.r,
                                   prior = prior, Psi.inv = Psi.inv)$r
+            # print(range(abs(r.tilde)))
           # }
 
           if (diag.app.r) {
