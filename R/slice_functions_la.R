@@ -67,7 +67,7 @@ samp.Omega.inv <- function(Beta, pr.V.inv = diag(ncol(Beta)),
   if (str == "uns") {
     V.inv <- crossprod(Beta) + pr.V.inv
     df <- nrow(Beta) + pr.df
-
+    # print(V.inv)
     V.half <- sym.sq.root.inv((V.inv + t(V.inv))/2)
 
     return(tcrossprod(crossprod(V.half, matrix(rnorm(p*df), nrow = p, ncol = df))))
@@ -1292,7 +1292,7 @@ sampler <- function(
         Omega.inv[[k]] <- make.ar.mat(p = p[k], rho = rho, inv = TRUE)
 
       } else {
-
+        if (print.iter) {cat("Sample Omega.inv ", k, " \n")}
         Covar <- apply(Covar, k, "c")
         Omega.inv[[k]] <- samp.Omega.inv(Beta = Covar, str = str,
                                          pr.V.inv = pr.Omega.V.inv[[k]],
