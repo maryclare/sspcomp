@@ -163,6 +163,7 @@ coord.desc.r <- function(Omega.inv, beta, c = NULL, eps = 10^(-12), max.iter = 1
                          kappa3 = kappa3)
 
         inner <- 1
+        mid <- (hig + low)/2
         while (abs(hig - low) > eps & inner <= max.inner) {
           mid <- (low + hig)/2
           g.mid <- sn.ll.d(mid, alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2,
