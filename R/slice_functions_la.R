@@ -1289,7 +1289,9 @@ sampler <- function(
                                     "pr.a" = pr.rho.a,
                                     "pr.b" = pr.rho.b,
                                     "j" = k))
-        if (print.iter) {cat("rho = ", rho, "\n")}
+        # if (print.iter) {
+        #   cat("rho = ", rho, "\n")
+        # }
         Omega.inv[[k]] <- make.ar.mat(p = p[k], rho = rho, inv = TRUE)
 
       } else {
