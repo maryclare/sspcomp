@@ -1137,6 +1137,7 @@ sampler <- function(
                                     print.iter = FALSE, max.inner = max.inner.r,
                                   start.r = start.r,
                                   prior = prior, Psi.inv = Psi.inv)$r
+            # r.tilde[abs(r.tilde) > 10^(14)] <- sign(r.tilde[abs(r.tilde) > 10^(14)])*10^(14)
             # print(range(abs(r.tilde)))
           # }
 

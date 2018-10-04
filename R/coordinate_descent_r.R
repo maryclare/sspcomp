@@ -118,7 +118,7 @@ coord.desc.r <- function(Omega.inv, beta, c = NULL, eps = 10^(-12), max.iter = 1
         sol <- solve(poly)
         sol <- Re(sol[Im(sol) == 0])
         if (length(sol) > 1) {
-          sol.val <- sn.ll(rj = sol, alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
+          sol.val <- sp.ll(rj = sol, alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
           sol <- sol[which(sol.val == max(sol.val, na.rm = TRUE))]
         }
         r[j] <- sol[1]
