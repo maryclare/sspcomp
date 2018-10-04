@@ -827,6 +827,37 @@ sampler <- function(
     if (is.null(fix.beta)) {
       sample.beta <- c(gamma, c(Z))
       if (print.iter) {cat("Sample Beta\n")}
+
+      if (prior == "spn") {
+        samp.vars <- c("z", "s")
+      } else {
+        samp.vars <- c("z")
+      }
+      for (sv in samp.vars) {
+
+        if (prior == "spn") {
+          if (sv == "z") {
+
+            X.arr.s <- array(c(crossprod(apply(X.arr, 1, "c"), diag(c(atrans.mc(S, Psi.half))))), dim = c(n, p))
+            for (l in 1:length(p)) {
+              X.arr.s <- amprod.mc(X.arr.s, Omega.half[[l]], l + 1)
+            }
+            W <- t(apply(X.arr.s, 1, "c"))
+            UW <- cbind(U, W)
+
+          } else {
+
+            X.arr.s <- X.arr
+            X.arr.s <- array(c(crossprod(apply(X.arr, 1, "c"), diag(c(atrans.mc(Z, Omega.half))))), dim = c(n, p))
+            for (l in 1:length(p)) {
+              X.arr.s <- amprod.mc(X.arr.s, Psi.half[[l]], l + 1)
+            }
+            W <- t(apply(X.arr.s, 1, "c"))
+            UW <- cbind(U, W)
+
+          }
+
+        }
       if (slice.beta) {
 
 
@@ -1018,11 +1049,16 @@ sampler <- function(
       }
 
       gamma <- sample.beta[1:q]
-      Z <- array(sample.beta[(q + 1):length(sample.beta)], dim = p)
-      S <- array(S, p)
+      if (prior != "spn" | (prior == "spn" & sv == "z")) {
+        Z <- array(sample.beta[(q + 1):length(sample.beta)], dim = p)
+      } else {
+        S <- array(S, p)
+      }
+
       Z <- array(Z, p)
       B <- S*atrans.mc(Z, Omega.half)
 
+      }
     }
 
 
@@ -1041,7 +1077,7 @@ sampler <- function(
       }
     }
 
-    if (prior == "sng" | prior == "spn" | prior == "spb") {
+    if (prior == "sng" | (prior == "spn" & !is.null(fix.beta)) | prior == "spb") {
 
       if (null.r.tilde & null.V.r.inv) {
         if (i == 1 | !use.previous.r) {
