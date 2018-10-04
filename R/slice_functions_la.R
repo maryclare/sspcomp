@@ -1052,7 +1052,7 @@ sampler <- function(
       if (prior != "spn" | (prior == "spn" & sv == "z")) {
         Z <- array(sample.beta[(q + 1):length(sample.beta)], dim = p)
       } else {
-        S <- array(S, p)
+        S <- array(sample.beta[(q + 1):length(sample.beta)], p)
       }
 
       Z <- array(Z, p)
