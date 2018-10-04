@@ -535,7 +535,8 @@ sample.d <- function(theta, delta, V.half, V.r.inv = NULL, nu = NULL) {
 sample.r.eta <- function(r, Omega.inv, beta, c = NULL, eta, r.tilde, V.r.inv, V.r.half, prior, Psi.inv = NULL,
                          q = NULL, deltas = NULL, nu = NULL) {
   delta <- r - r.tilde
-  d <- sample.d(V.half = V.r.half, V.r.inv = V.r.inv, theta = eta, delta = delta, nu = nu)
+  d <- sample.d(V.half = V.r.half, V.r.inv = V.r.inv,
+                theta = eta, delta = delta, nu = nu)
   if (prior == "sng") {
     ll.args <- list("d0" = d$d0,
                     "d1" = d$d1,
@@ -574,11 +575,13 @@ sample.r.eta <- function(r, Omega.inv, beta, c = NULL, eta, r.tilde, V.r.inv, V.
               "r" = r.tilde + delta))
 }
 
-sample.beta.theta <- function(X, U, y, V.half, beta.prev, theta, beta.tilde, Omega.inv, V.inv,
+sample.beta.theta <- function(X, U, y, V.half, beta.prev, theta, beta.tilde, Omega.inv,
+                              V.inv,
                               sig.sq, reg) {
   delta <- beta.prev - beta.tilde
   # cat("Sample d\n")
-  d <- sample.d(V.half = V.half, V.inv = V.inv, theta = theta, delta = delta)
+  d <- sample.d(V.half = V.half,
+                theta = theta, delta = delta)
   # cat("Sample theta\n")
   theta <- slice(x.tilde = theta, ll.fun = "h.log", var.lim = c(0, 2*pi),
                  ll.args = list("X" = X,
@@ -629,7 +632,7 @@ sampler <- function(
   joint.beta = list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))),
   use.previous = FALSE,
   use.previous.r = use.previous,
-  max.inner = 100,
+  max.inner = 1000,
   max.inner.r = max.inner,
   sep.theta = list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))),
   sep.eta = list(1:(prod(dim(X)[-1]))),
@@ -672,19 +675,37 @@ sampler <- function(
   null.z.tilde <- is.null(z.tilde)
   null.r.tilde <- is.null(r.tilde)
 
+  n <- length(y)
+  p <- dim(X)[-1]
+
+  null.U <- is.null(U)
+  # No intercept if U is null
+  if (null.U) {
+    U <- matrix(0, nrow = n, ncol = 1)
+  }
+  q <- ncol(U)
+
   if (!diag.app) {
     # Can only use separate thetas if we are using independent proposals
-    if (print.iter) {cat("Separate values of the slice variable for beta are only possible for diagonal covariance matrices\n")}
-    sep.theta <- list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U))))
+    block.theta <- matrix(0, nrow = prod(p) + q, ncol = prod(p) + q)
+    for (i in 1:length(sep.theta)) {
+      block.theta[sep.theta[[i]], sep.theta[[i]]] <- 1
+    }
+    if (!is.null(V.inv) & min(block.theta) == 0) {
+      V.inv <- solve(block.theta*solve(V.inv))
+    }
   }
   if (!diag.app.r) {
     # Can only use separate etas if we are using independent proposals
-    if (print.iter) {cat("Separate values of the slice variable for r are only possible for diagonal covariance matrices\n")}
-    sep.eta <- list(1:(prod(dim(X)[-1])))
+    block.eta <- matrix(0, nrow = prod(p) + q, ncol = prod(p) + q)
+    for (i in 1:length(sep.theta)) {
+      block.eta[sep.eta[[i]], sep.eta[[i]]] <- 1
+    }
+    if (!is.null(V.r.inv) & min(block.eta) == 0) {
+      V.r.inv <- solve(block.eta*solve(V.r.inv))
+    }
   }
 
-  n <- length(y)
-  p <- dim(X)[-1]
   X.arr <- X
   X <- t(apply(X, 1, "c"))
 
@@ -714,7 +735,6 @@ sampler <- function(
     rho.psi <- 0
   }
 
-  null.U <- is.null(U)
   if (max(null.Omega.half) == 1) {
     res.Omega <- vector("list", length(p))
     res.Sigma <- vector("list", length(p))
@@ -753,11 +773,7 @@ sampler <- function(
     Psi.half.inv <- lapply(Psi.half, function(x) {ei.inv(x)})
   }
 
-  # No intercept if U is null
-  if (null.U) {
-    U <- matrix(0, nrow = n, ncol = 1)
-  }
-  q <- ncol(U)
+
 
   # Results objects
   res.rho <- array(dim = c(num.samp, 1))
@@ -958,6 +974,9 @@ sampler <- function(
               if (print.iter) {cat("Get Covariance Matrix\n")}
               UWtBB <- crossprod(UW, BB)/sig.sq
               V.inv <- UWtBB + diag(penC, nrow = length(penC), ncol = length(penC))
+              if (min(block.theta) == 0) {
+                V.inv <- solve(block.theta*solve(V.inv))
+              }
               V.half <- sym.sq.root.inv(V.inv)
             }
 
@@ -972,9 +991,11 @@ sampler <- function(
 
         }
         if  (print.iter) {cat("Sample Beta and Theta\n")}
+
         sample <- sample.beta.theta(X = W, U = U, y = y, V.half = V.half, beta.prev = c(gamma, c(Z)),
                                     theta = theta, beta.tilde = z.tilde,
-                                    Omega.inv = lapply(p, function(x) {diag(1, nrow = x, ncol = x)}), V.inv = V.inv,
+                                    Omega.inv = lapply(p, function(x) {diag(1, nrow = x, ncol = x)}),
+                                    V.inv = V.inv,
                                     sig.sq = sig.sq, reg = reg)
         sample.beta <- sample$beta
         theta <- sample$theta
@@ -1157,7 +1178,9 @@ sampler <- function(
                                                                            ncol = length(r.tilde)) +
                                                                       5*diag(1, nrow = length(r.tilde), ncol = length(r.tilde))) +
                              diag(1/(r.tilde)^2 + -(2*c - 1)*1/(r.tilde)^2 - 2*c, nrow = length(r.tilde), ncol = length(r.tilde)))
-
+            if (!is.null(V.r.inv) & min(block.eta) == 0) {
+              V.r.inv <- solve(block.eta*solve(V.r.inv))
+            }
             V.r.half <- sym.sq.root.inv(V.r.inv)
             V.r.inv <- ei.inv(crossprod(V.r.half)) # Make sure it's pos-semi-def
           }
@@ -1228,7 +1251,9 @@ sampler <- function(
                                                                            ncol = length(r.tilde)) +
                                                                       5*diag(1, nrow = length(r.tilde), ncol = length(r.tilde))) +
                              - diag(-1/abs(r.tilde)^2, nrow = length(r.tilde), ncol = length(r.tilde)) - P.i/2)
-
+            if (!is.null(V.r.inv) & min(block.eta) == 0) {
+              V.r.inv <- solve(block.eta*solve(V.r.inv))
+            }
             V.r.half <- sym.sq.root.inv(V.r.inv)
             V.r.inv <- ei.inv(crossprod(V.r.half)) # Make sure it's pos-semi-def
           }
@@ -1284,7 +1309,9 @@ sampler <- function(
                                                                            nrow = length(r.tilde),
                                                                            ncol = length(r.tilde)) +
                                                                       5*diag(1, nrow = length(r.tilde), ncol = length(r.tilde))) - diag(-1/abs(r.tilde)^2 + multip*((2*(c/2)/(1 - (c/2))))*((2*(c/2)/(1 - (c/2))) - 1)*r.tilde^(2*(c/2)/(1 - (c/2)) - 2), nrow = length(r.tilde), ncol = length(r.tilde)) + diag(-((1 + (c/2))/(1 - (c/2)) - 1)/r.tilde^2, nrow = length(r.tilde), ncol = length(r.tilde)))
-
+            if (!is.null(V.r.inv) & min(block.eta) == 0) {
+              V.r.inv <- solve(block.eta*solve(V.r.inv))
+            }
             V.r.half <- sym.sq.root.inv(V.r.inv)
             V.r.inv <- ei.inv(crossprod(V.r.half)) # Make sure it's pos-semi-def
 
