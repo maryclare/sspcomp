@@ -1418,10 +1418,6 @@ sampler <- function(
         }
       }
 
-      if (reg == "linear" & null.sig.sq) {
-        resid <- y - crossprod(t(U), gamma) - crossprod(t(X), c(B))
-        sig.sq <- 1/rgamma(1, shape = pr.sig.sq.shape + length(resid)/2, rate = pr.sig.sq.rate + sum(resid^2)/2)
-      }
 
       if (i > burn.in & (i - burn.in)%%thin == 0 & k != 1) {
         if (prior == "sno") {
@@ -1441,6 +1437,10 @@ sampler <- function(
       }
     }
 
+    if (reg == "linear" & null.sig.sq) {
+      resid <- y - crossprod(t(U), gamma) - crossprod(t(X), c(B))
+      sig.sq <- 1/rgamma(1, shape = pr.sig.sq.shape + length(resid)/2, rate = pr.sig.sq.rate + sum(resid^2)/2)
+    }
 
     if (is.null(fix.beta) & max(null.Omega.half) == 1) {
       Z <- atrans.mc(B/S, Omega.half.inv)
