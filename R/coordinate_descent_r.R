@@ -67,54 +67,54 @@ coord.desc.r <- function(Omega.inv, beta, c = NULL, eps = 10^(-12), max.iter = 1
 
       if (prior == "spn") {
 
-        ### Not reliable right now
-        # poly <- polynomial(c(-2*alpha1, -2*alpha2/2, -1, kappa3, 2*kappa2))
-        # # cat("alpha1=", alpha1, "; alpha2=", alpha2, "; kappa3=", kappa3, "; kappa2=", kappa2, "\n")
-        #
-        # sol <- solve(poly)
-        # sol <- Re(sol[Im(sol) == 0])
-        # if (length(sol) > 1) {
-        #   sol.val <- sp.ll(rj = sol, alpha1 = alpha1, alpha2 = alpha2, kappa2 = kappa2, kappa3 = kappa3)
-        #   # cat("Sol=", sol, "\n")
-        #   # cat("Sol Val", sol.val, "\n")
-        #   sol <- sol[which(sol.val == max(sol.val, na.rm = TRUE))]
-        # }
-        # r[j] <- sol[1]
+        ## Not reliable right now
+        poly <- polynomial(c(-2*alpha1, -2*alpha2/2, -1, kappa3, 2*kappa2))
+        # cat("alpha1=", alpha1, "; alpha2=", alpha2, "; kappa3=", kappa3, "; kappa2=", kappa2, "\n")
 
-      # Newton Raphson
-      diff <- Inf
-      inner <- 1
-      reset <- 1
-      while(abs(diff) > eps & inner <= max.inner) {
-
-        if (prior %in% c("spb", "sng")) {
-
-          hess <- sn.ll.dd(rj = r[j], alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
-          grad <- sn.ll.d(rj = r[j], alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
-        } else if (prior == "spn") {
-
-          hess <- sp.ll.dd(rj = r[j], alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
-          grad <- sp.ll.d(rj = r[j], alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
+        sol <- solve(poly)
+        sol <- Re(sol[Im(sol) == 0])
+        if (length(sol) > 1) {
+          sol.val <- sp.ll(rj = sol, alpha1 = alpha1, alpha2 = alpha2, kappa2 = kappa2, kappa3 = kappa3)
+          # cat("Sol=", sol, "\n")
+          # cat("Sol Val", sol.val, "\n")
+          sol <- sol[which(sol.val == max(sol.val, na.rm = TRUE))]
         }
-        r[j] <- r[j] - grad/hess
-        diff <- mean(abs(r[j] - r.old[j]))
+        r[j] <- sol[1]
 
-        inner <- inner + 1
-
-        if (is.na(diff) | abs(r[j]) > 100) {
-          r[j] <- abs(runif(1, 0, 1))
-          diff <- Inf
-          inner <- 1
-          reset <- reset + 1
-          if (reset > 1) {
-            r[j] <- 0
-            diff <- 0
-          }
-        }
-
-        r.old <- r
-
-      }
+      # # Newton Raphson
+      # diff <- Inf
+      # inner <- 1
+      # reset <- 1
+      # while(abs(diff) > eps & inner <= max.inner) {
+      #
+      #   if (prior %in% c("spb", "sng")) {
+      #
+      #     hess <- sn.ll.dd(rj = r[j], alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
+      #     grad <- sn.ll.d(rj = r[j], alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
+      #   } else if (prior == "spn") {
+      #
+      #     hess <- sp.ll.dd(rj = r[j], alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
+      #     grad <- sp.ll.d(rj = r[j], alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
+      #   }
+      #   r[j] <- r[j] - grad/hess
+      #   diff <- mean(abs(r[j] - r.old[j]))
+      #
+      #   inner <- inner + 1
+      #
+      #   if (is.na(diff) | abs(r[j]) > 100) {
+      #     r[j] <- abs(runif(1, 0, 1))
+      #     diff <- Inf
+      #     inner <- 1
+      #     reset <- reset + 1
+      #     if (reset > 1) {
+      #       r[j] <- 0
+      #       diff <- 0
+      #     }
+      #   }
+      #
+      #   r.old <- r
+      #
+      # }
       } else if (prior == "sng") {
 
         poly <- polynomial(c(-2*alpha1, -alpha2, -(kappa1 + 1), 0, 2*kappa2))
