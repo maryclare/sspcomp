@@ -67,9 +67,7 @@ samp.Omega.inv <- function(Beta, pr.V.inv = diag(1, nrow = ncol(Beta), ncol = nc
   if (str == "uns") {
     V.inv <- crossprod(Beta) + pr.V.inv
     df <- nrow(Beta) + pr.df
-    # print(V.inv)
     V.half <- sym.sq.root.inv((V.inv + t(V.inv))/2)
-
     return(tcrossprod(crossprod(V.half, matrix(rnorm(p*df), nrow = p, ncol = df))))
 
     # return(matrix(rWishart(1, df, solve(V.inv))[, , 1], nrow = p, ncol = p))
@@ -811,7 +809,6 @@ sampler <- function(
   res.gamma <- array(dim = c(num.samp, q))
   res.D <- array(dim = c(num.samp, prod(p)))
 
-  S <- array(1, dim = p)
   if (!is.null(fix.beta)) {
     gamma <- fix.beta[1:q]
     beta <- fix.beta[(q + 1):length(fix.beta)]
@@ -831,6 +828,7 @@ sampler <- function(
   } else {
     R <- array(r.start, dim = p)
   }
+  S <- R
   if (slice.beta) {
     theta <- numeric(prod(p) + q)
     for (i in 1:length(sep.theta)) {
@@ -1152,7 +1150,6 @@ sampler <- function(
     }
 
     if (prior == "sng" | (prior == "spn" & !is.null(fix.beta)) | prior == "spb") {
-      # if (prior == "sng" | prior == "spn" | prior == "spb") {
 
       if (null.r.tilde) {
 
@@ -1270,8 +1267,6 @@ sampler <- function(
 
     for (k in which(null.Omega.half)) {
 
-      # cat("Hi 1367\n")
-
       Covar <- B/S
       for (l in 1:length(p)) {
         if (l != k) {
@@ -1297,17 +1292,23 @@ sampler <- function(
                                          pr.df = pr.Omega.df[[k]])
       }
       Omega[[k]] <- ei.inv(Omega.inv[[k]])
+      Omega.half[[k]] <- sym.sq.root(Omega[[k]])
+      Omega.half.inv[[k]] <- sym.sq.root(Omega.inv[[k]])
+
       if (i > burn.in & (i - burn.in)%%thin == 0 & k != 1) {
         res.Omega[[k]][(i - burn.in)/thin, , ] <- Omega[[k]]
       }
 
-      Omega.half[[k]] <- sym.sq.root(Omega[[k]])
-      Omega.half.inv[[k]] <- sym.sq.root(Omega.inv[[k]])
+      Z <- atrans.mc(B/S, Omega.half.inv)
+      B <- S*atrans.mc(Z, Omega.half)
 
     }
     if (prior == "spn") {
-      S.Psi.half.inv <- atrans.mc(S, Psi.half.inv)
+
+      Psi.half.inv.old <- Psi.half.inv
+
       for (k in which(null.Psi.half)) {
+
         Covar <- S
         for (l in 1:length(p)) {
           if (l != k) {
@@ -1338,17 +1339,12 @@ sampler <- function(
         Psi.half[[k]] <- sym.sq.root(Psi[[k]])
         Psi.half.inv[[k]] <- sym.sq.root(Psi.inv[[k]])
 
-      }
-    }
+        S <- atrans.mc(atrans.mc(S, Psi.half.inv.old), Psi.half)
+        Z <- atrans.mc(B/S, Omega.half.inv)
+        B <- S*atrans.mc(Z, Omega.half)
 
-    if (!(prior == "sno" & max(null.Omega.half) == 0)) {
-      if (prior == "spn") {
-        S <- atrans.mc(S.Psi.half.inv, Psi.half)
       }
-      Z <- atrans.mc(B/S, Omega.half.inv)
-      B <- S*atrans.mc(Z, Omega.half)
-    }
-
+  }
 
     for (k in record.which) {
       if (i > burn.in & (i - burn.in)%%thin == 0 & k != 1) {
@@ -1364,7 +1360,6 @@ sampler <- function(
           res.Sigma[[k]][(i - burn.in)/thin, , ] <- Omega[[k]]*els
         } else if (prior == "spn") {
           res.Sigma[[k]][(i - burn.in)/thin, , ] <- Omega[[k]]*Psi[[k]]
-          # print(Omega[[k]]*Psi[[k]])
         }
       }
     }
@@ -1622,11 +1617,6 @@ em.est <- function(print.iter.em = TRUE,
         break
       }
     }
-  }
-
-  if (is.null(U)) {
-    post.mean <- post.mean[-1]
-    post.median <- post.median[-1]
   }
 
   return(list("betas" = betas[1:i, ],
