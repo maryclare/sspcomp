@@ -100,6 +100,14 @@ coord.desc.r <- function(Omega.inv, beta, c = NULL, eps = 10^(-12), max.iter = 1
         fl[6] <- floor(fl[6])
         hig <- solve.kappa(kappa = fl, prior = prior)
 
+        if (is.na(low) & is.na(hig)) {
+          r[j] <- r[j]
+        } else if (is.na(low)) {
+          r[j] <- hig
+        } else if (is.na(hig)) {
+          r[j] <- low
+        } else {
+
         g.low <- kappa.ll(s.j = low, kappa = kappa)
         g.hig <- kappa.ll(s.j = hig, kappa = kappa)
 
@@ -118,6 +126,7 @@ coord.desc.r <- function(Omega.inv, beta, c = NULL, eps = 10^(-12), max.iter = 1
           inner <- inner + 1
         }
         r[j] <- mid
+        }
       }
     }
 

@@ -1156,6 +1156,19 @@ sampler <- function(
 
       if (null.r.tilde) {
 
+        # Don't have to reset r.tilde every iteration if
+        # - prior %in% c("sng", "spn)
+        # - !is.null(fix.beta)
+        # - max(null.Psi.half) == 0
+        # - max(null.Omega.half) == 0
+        # - !null.sig.sq
+        once <- !is.null(fix.beta) & prior %in% c("sng", "spn") & max(null.Omega.half) == 0 & !null.sig.sq
+        if (prior == "spn") {
+          once <- once*(max(null.Psi.half) == 0)
+        }
+
+        if ((i == 1 & once) | !once) {
+
         if (print.iter) {cat("Set Sampling Values for R\n")}
         if (use.previous.r | i == 1) {
           start.r <- rep(1, prod(p))
@@ -1226,7 +1239,7 @@ sampler <- function(
           V.r.inv <- ei.inv(crossprod(V.r.half)) # Make sure it's pos-semi-def
         }
       }
-
+      }
 
       if (print.iter) {cat("Sample R\n")}
 
