@@ -1,39 +1,75 @@
-# Can just use h.log.r.spb and h.log.r.sng functions for objective
-sp.ll <- function(rj, alpha1, alpha2, kappa1, kappa2, kappa3) {
-  alpha1*rj^(-2) -log(abs(rj)) + kappa2*(rj^2) + kappa3*(rj) + alpha2/rj
-}
-# sp.ll.d <- Deriv(sp.ll, "rj")
-sp.ll.d <- function (rj, alpha1, alpha2, kappa1, kappa2, kappa3) {
-  (kappa1 - 1) * sign(rj)/abs(rj) + 2 * (alpha1 * rj) + alpha2 -
-    (2 * (kappa2/rj) + kappa3)/rj^2
-}
-# sp.ll.dd <- Deriv(sp.ll.d, "rj")
-sp.ll.dd <- function (rj, alpha1, alpha2, kappa1, kappa2, kappa3)
-{
-  .e1 <- 2 * (kappa2/rj)
-  ((2 * (.e1 + kappa3) + .e1)/rj - (kappa1 - 1) * sign(rj)^2)/rj^2 +
-    2 * alpha1
+# Function for setting kappa values
+get.kappa <- function(prior, Omega.inv, beta, r, c = NULL, deltas = NULL,
+                      Psi.inv = NULL, j) {
+
+  Omega.inv.j <- get.kron.row(j, Omega = Omega.inv)
+  kappa <- numeric(6)
+  kappa[1] <- -beta[j]^2*Omega.inv.j[j]/2
+  if (prior == "spn") {
+    Psi.inv.j <- get.kron.row(j, Omega = Psi.inv)
+    kappa[2] <- -beta[j]*sum(Omega.inv.j[-j]*beta[-j]/r[-j])
+    kappa[3] <- -1/2
+    kappa[4] <- -sum(Psi.inv.j[-j]*r[-j])
+    kappa[5] <- -Psi.inv.j[j]/2
+    kappa[6] <- 2
+  } else if (prior == "sng") {
+    kappa[2] <- -beta[j]*sum(Omega.inv.j[-j]*beta[-j]/abs(r[-j]))
+    kappa[3] <- c - 1
+    kappa[4] <- 0
+    kappa[5] <- -c
+    kappa[6] <- 2
+  } else if (prior == "spb") {
+    alpha <- c/2
+    kappa[2] <- -beta[j]*sum(Omega.inv.j[-j]*beta[-j]/abs(r[-j]))
+    kappa[3] <- (1 + alpha)/(2*(1 - alpha)) - 1
+    kappa[4] <- 0
+    kappa[5] <- -(((2*gamma(3/c))/gamma(1/c))^(alpha/(1 - alpha))*f.deltas(deltas = deltas[j], c = c))
+    kappa[6] <- 2*(alpha/(1 - alpha))
+  }
+
+  return(kappa)
+
 }
 
+kappa.ll <- function(s.j, kappa) {
+  kappa[1]*s.j^(-2) + kappa[2]*s.j^(-1) + kappa[3]*log(s.j^2) + kappa[4]*s.j + kappa[5]*s.j^kappa[6]
+}
 
-sn.ll <- function(rj, alpha1, alpha2, kappa1, kappa2, kappa3) {
-  alpha1*rj^(-2) - (kappa1 - 1)*log(abs(rj)) - 2*log(abs(rj)) + kappa2*abs(rj)^(-2*kappa3) + alpha2/abs(rj)
+kappa.ll.dd <- function(s.j, kappa) {
+  6*kappa[1]*s.j^(-4) + 2*kappa[2]*s.j^(-3) - 2*kappa[3]*s.j^(-2) + kappa[5]*kappa[6]*(kappa[6] - 1)*s.j^(kappa[6] - 2)
 }
-# sn.ll.d <- Deriv(sn.ll, "rj")
-sn.ll.d <- function (rj, alpha1, alpha2, kappa1, kappa2, kappa3)
-{
-  .e1 <- abs(rj)
-  -(((1 + 2 * (kappa2 * kappa3/.e1^(2 * kappa3)) + kappa1)/.e1 +
-       alpha2/rj^2) * sign(rj) + 2 * (alpha1/rj^3))
+
+# Function for relating kappa values to polynomial coefficients
+get.poly.coef <- function(kappa) {
+
+  max.pow <- max(3, kappa[6] + 2)
+  coef <- numeric(max.pow + 1)
+  coef[1] <- -2*kappa[1]
+  coef[2] <- -kappa[2]
+  coef[3] <- 2*kappa[3]
+  coef[4] <- kappa[4]
+  coef[kappa[6] + 2 + 1] <- kappa[5]*kappa[6]
+
+  return(coef)
+
 }
-# sn.ll.dd <- Deriv(sn.ll.d, "rj")
-sn.ll.dd <- function (rj, alpha1, alpha2, kappa1, kappa2, kappa3)
-{
-  .e3 <- abs(rj)^(2 * kappa3)
-  .e4 <- rj^2
-  .e5 <- sign(rj)
-  (((1 + kappa1 + kappa2 * kappa3 * (2/.e3 + 4 * (kappa3/.e3))) *
-      .e5 + 2 * (alpha2/rj)) * .e5 + 6 * (alpha1/.e4))/.e4
+
+solve.kappa <- function(kappa, prior) {
+  poly <- polynomial(get.poly.coef(kappa))
+  sol <- solve(poly)
+  sol <- Re(sol[Im(sol) == 0])
+  if (prior == "sng" | prior == "spb") {
+    sol <- sol[sol >= 0]
+  }
+  # cat("sol=", sol, "\n ")
+  if (length(sol) > 1) {
+    sol.val <- numeric(length(sol))
+    for (k in 1:length(sol.val)) {
+      sol.val[k] <- kappa.ll(s.j = sol[k], kappa = kappa)
+    }
+    sol <- sol[which(sol.val == max(sol.val, na.rm = TRUE))]
+  }
+  return(sol[1])
 }
 
 #' @export
@@ -49,125 +85,29 @@ coord.desc.r <- function(Omega.inv, beta, c = NULL, eps = 10^(-12), max.iter = 1
 
       r.old <- r
 
-      Omega.inv.j <- get.kron.row(j, Omega = Omega.inv)
-      alpha1 <- -beta[j]^2*Omega.inv.j[j]/2
-      alpha2 <- -sum(beta[j]*Omega.inv.j[-j]*abs(r[-j])*beta[-j])
+      kappa <- get.kappa(prior = prior, Omega.inv = Omega.inv, beta = beta, r = r, c = c, deltas = deltas,
+                         Psi.inv = Psi.inv, j)
 
-      if (prior %in% c("spb", "sng")) {
-        kappa1 <- ifelse(prior == "spb", 2*(c/2)/(c/2 - 1), 1 - 2*c)
-        kappa2 <- ifelse(prior == "spb", -(((2*gamma(3/c))/gamma(1/c))^(c/2/(1 - c/2))*f.deltas(deltas = deltas[j], c = c)) , -c)
-        kappa3 <- ifelse(prior == "spb", c/2/(c/2 - 1), -1)
-      } else {
-        Psi.inv.j <- get.kron.row(j, Omega = Psi.inv)
-
-        kappa1 <- 1/2
-        kappa2 <- -Psi.inv.j[j]/2
-        kappa3 <- -sum(Psi.inv.j[-j]/r[-j])
-      }
-
-      if (prior == "spn") {
-
-        ## Not reliable right now
-        poly <- polynomial(c(-2*alpha1, -2*alpha2/2, -1, kappa3, 2*kappa2))
-        # cat("alpha1=", alpha1, "; alpha2=", alpha2, "; kappa3=", kappa3, "; kappa2=", kappa2, "\n")
-
-        sol <- solve(poly)
-        sol <- Re(sol[Im(sol) == 0])
-        if (length(sol) > 1) {
-          sol.val <- sp.ll(rj = sol, alpha1 = alpha1, alpha2 = alpha2, kappa2 = kappa2, kappa3 = kappa3)
-          # cat("Sol=", sol, "\n")
-          # cat("Sol Val", sol.val, "\n")
-          sol <- sol[which(sol.val == max(sol.val, na.rm = TRUE))]
-        }
-        r[j] <- sol[1]
-
-      # # Newton Raphson
-      # diff <- Inf
-      # inner <- 1
-      # reset <- 1
-      # while(abs(diff) > eps & inner <= max.inner) {
-      #
-      #   if (prior %in% c("spb", "sng")) {
-      #
-      #     hess <- sn.ll.dd(rj = r[j], alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
-      #     grad <- sn.ll.d(rj = r[j], alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
-      #   } else if (prior == "spn") {
-      #
-      #     hess <- sp.ll.dd(rj = r[j], alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
-      #     grad <- sp.ll.d(rj = r[j], alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
-      #   }
-      #   r[j] <- r[j] - grad/hess
-      #   diff <- mean(abs(r[j] - r.old[j]))
-      #
-      #   inner <- inner + 1
-      #
-      #   if (is.na(diff) | abs(r[j]) > 100) {
-      #     r[j] <- abs(runif(1, 0, 1))
-      #     diff <- Inf
-      #     inner <- 1
-      #     reset <- reset + 1
-      #     if (reset > 1) {
-      #       r[j] <- 0
-      #       diff <- 0
-      #     }
-      #   }
-      #
-      #   r.old <- r
-      #
-      # }
-      } else if (prior == "sng") {
-
-        poly <- polynomial(c(-2*alpha1, -alpha2, -(kappa1 + 1), 0, 2*kappa2))
-        sol <- solve(poly)
-        sol <- Re(sol[Im(sol) == 0])
-        sol <- sol[sol > 0]
-        if (length(sol) > 1) {
-          sol.val <- sn.ll(rj = sol, alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2, kappa3 = kappa3)
-          sol <- sol[which(sol.val == max(sol.val, na.rm = TRUE))]
-        }
-        r[j] <- sol[1]
-
+      if (prior == "spn" | prior == "sng") {
+        r[j] <- solve.kappa(kappa = kappa, prior = prior)
       } else if (prior == "spb") {
 
-        ce <- ceiling(-2*kappa3)
-        p.ce <- numeric(2*ce - 1 + 3 + 1)
-        p.ce[length(p.ce)] <- 2*ce*kappa2
+        ce <- kappa
+        ce[6] <- ceiling(ce[6])
+        low <- solve.kappa(kappa = ce, prior = prior)
 
-        fl <- floor(-2*kappa3)
-        p.fl <- numeric(2*fl - 1 + 3 + 1)
-        p.fl[length(p.fl)] <- 2*fl*kappa2
+        fl <- kappa
+        fl[6] <- floor(fl[6])
+        hig <- solve.kappa(kappa = fl, prior = prior)
 
-        p.co <- numeric(length(p.ce))
-        p.co[1:3] <- c(-2*alpha1, -alpha2, -kappa1 - 1)
-
-        poly <- polynomial(p.co + p.ce)
-        sol <- solve(poly)
-        sol <- Re(sol[Im(sol) == 0])
-        low <- sol[sol > 0]
-        low.val <-  sn.ll(low, alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2,
-                          kappa3 = kappa3)
-        low <- low[low.val == max(low.val)]
-
-        poly <- polynomial(p.co[1:length(p.fl)] + p.fl)
-        sol <- solve(poly)
-        sol <- Re(sol[Im(sol) == 0])
-        hig <- sol[sol > 0]
-        hig.val <-  sn.ll(hig, alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2,
-                          kappa3 = kappa3)
-        hig <- hig[hig.val == max(hig.val)]
-
-
-        g.low <- sn.ll.d(low, alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2,
-                         kappa3 = kappa3)
-        g.hig <- sn.ll.d(hig, alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2,
-                         kappa3 = kappa3)
+        g.low <- kappa.ll(s.j = low, kappa = kappa)
+        g.hig <- kappa.ll(s.j = hig, kappa = kappa)
 
         inner <- 1
         mid <- (hig + low)/2
         while (abs(hig - low) > eps & inner <= max.inner) {
           mid <- (low + hig)/2
-          g.mid <- sn.ll.d(mid, alpha1 = alpha1, alpha2 = alpha2, kappa1 = kappa1, kappa2 = kappa2,
-                           kappa3 = kappa3)
+          g.mid <- kappa.ll(s.j = mid, kappa = kappa)
           if (g.mid < 0) {
             hig <- mid
             g.hig <- g.mid
@@ -178,9 +118,6 @@ coord.desc.r <- function(Omega.inv, beta, c = NULL, eps = 10^(-12), max.iter = 1
           inner <- inner + 1
         }
         r[j] <- mid
-
-
-
       }
     }
 
