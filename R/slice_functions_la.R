@@ -69,7 +69,6 @@ samp.Omega.inv <- function(Beta, pr.V.inv = diag(1, nrow = ncol(Beta), ncol = nc
     df <- nrow(Beta) + pr.df
     V.half <- sym.sq.root.inv((V.inv + t(V.inv))/2)
     return(tcrossprod(crossprod(V.half, matrix(rnorm(p*df), nrow = p, ncol = df))))
-
     # return(matrix(rWishart(1, df, solve(V.inv))[, , 1], nrow = p, ncol = p))
   } else if (str == "het") {
     b <- apply(Beta, 2, function(x) {sum(x^2)})/(2) + diag(pr.V.inv)/2
@@ -871,8 +870,9 @@ sampler <- function(
   for (i in 1:(burn.in + thin*num.samp)) {
     if (print.iter) {cat("i=", i, "\n")}
 
+    sample.beta <- c(gamma, c(Z))
+
     if (is.null(fix.beta)) {
-      sample.beta <- c(gamma, c(Z))
 
       if (prior == "spn") {
         samp.vars <- c("z", "s")
@@ -884,8 +884,7 @@ sampler <- function(
         if (print.iter & sv == "s") {cat("Sample S\n")}
 
 
-        if (prior == "spn") {
-          if (sv == "z") {
+      if (sv == "z") {
 
             X.arr.s <- array(c(crossprod(apply(X.arr, 1, "c"),
                                          diag(c(S),
@@ -912,9 +911,8 @@ sampler <- function(
 
           }
 
-        }
-        if (slice.beta) {
 
+        if (slice.beta) {
 
           if (null.z.tilde & null.V.inv) {
             # Set mean for proposal distribution
