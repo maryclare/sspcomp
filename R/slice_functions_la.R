@@ -1508,7 +1508,7 @@ em.est <- function(max.iter.em = NULL,
   O.i <- do.call("%x%", Omega.inv[length(Omega.inv):1])
 
   penC <- matrix(0, nrow = ncol(UW), ncol = ncol(UW))
-  betas.em <- matrix(nrow = iter + 1, ncol = ncol(UW))
+  betas.em <- matrix(nrow = max.iter.em + 1, ncol = ncol(UW))
   es.i <- tcrossprod(rep(1, prod(p)))
 
   for (k in 1:max.iter.em) {
