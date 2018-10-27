@@ -1510,6 +1510,7 @@ em.est <- function(max.iter.em = NULL,
   penC <- matrix(0, nrow = ncol(UW), ncol = ncol(UW))
   betas.em <- matrix(nrow = max.iter.em + 1, ncol = ncol(UW))
   es.i <- tcrossprod(rep(1, prod(p)))
+  ess <- numeric(max.iter.em)
 
   for (k in 1:max.iter.em) {
     if (print.iter.em) {cat("EM Iteration=", k, "\n")}
@@ -1568,6 +1569,7 @@ em.est <- function(max.iter.em = NULL,
       pr.sig.sq.rate = pr.sig.sq.rate)$Ss
     es.is <- t(apply(1/s.s, 1, tcrossprod))
     es.i <- matrix(colMeans(es.is, na.rm = TRUE), nrow = p, ncol = p)
+    ess[k] <- min(effectiveSize(s.s))
   }
 
   if (reg == "linear") {
@@ -1585,7 +1587,7 @@ em.est <- function(max.iter.em = NULL,
     betas.em <- betas.em[, -1]
   }
 
-  return(list("betas" = betas.em))
+  return(list("betas" = betas.em, "esss" = ess))
 
 }
 
