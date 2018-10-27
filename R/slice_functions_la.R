@@ -1434,9 +1434,9 @@ sampler <- function(
 
 
 #' @export
-em.est <- function(print.iter.em = TRUE,
-                   max.iter.em = NULL,
-                   eps.em = 10^(-3),
+em.est <- function(max.iter.em = NULL,
+                   print.iter.em = TRUE,
+                   eps.em = NULL,
                    ### Data and regression type
                    X, # Array of penalized covariates, covariance along second dimension is AR-1
                    y, # Outcome
@@ -1447,13 +1447,13 @@ em.est <- function(print.iter.em = TRUE,
                    c = 1,
                    ### Prior Parameters and Likelihood Parameters
                    Omega.half = NULL, # A dim(X) - 1 list of symmetric square roots of covariance matrices
-                   Psi.half = NULL,   # A dim(X) - 1 list of symmetric square roots of covariance matrices
+                   Psi.half = NULL,
                    sig.sq = NULL,
                    ### MCMC Parameters
                    num.samp = 100, # Number of samples to return
                    burn.in = 0, # Number of burn-in samples to discard
                    thin = 1, # Number of samples to thin by
-                   print.iter = TRUE, # Indicator for whether or not iteration counter should be printed
+                   print.iter = TRUE,
                    max.iter = 1000, # Maximum number of outer iterations in coordinate descent for beta (and r if not max.iter.r not specified)
                    max.iter.r = max.iter, # Maximum number of outer iterations in coordinate descent for r
                    eps = 10^(-12), # Convergence threshold for coordinate descent beta (and r if eps.r not specified)
@@ -1464,9 +1464,9 @@ em.est <- function(print.iter.em = TRUE,
                    do.svd = TRUE,
                    slice.beta = TRUE,
                    joint.beta = list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))),
-                   use.previous = FALSE,
+                   use.previous = TRUE,
                    use.previous.r = use.previous,
-                   max.inner = 100,
+                   max.inner = 1000,
                    max.inner.r = max.inner,
                    sep.theta = list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))),
                    sep.eta = list(1:(prod(dim(X)[-1]))),
@@ -1492,6 +1492,7 @@ em.est <- function(print.iter.em = TRUE,
 
   W <- t(apply(X, 1, "c"))
 
+  U.orig <- U
   if (is.null(U)) {
     U <- matrix(0, nrow = nrow(W), ncol = 1)
     UW <- cbind(U, W)
@@ -1507,69 +1508,45 @@ em.est <- function(print.iter.em = TRUE,
   O.i <- do.call("%x%", Omega.inv[length(Omega.inv):1])
 
   penC <- matrix(0, nrow = ncol(UW), ncol = ncol(UW))
-  penC[2:nrow(penC), 2:ncol(penC)] <- (O.i)
+  betas.em <- matrix(nrow = iter + 1, ncol = ncol(UW))
+  es.i <- tcrossprod(rep(1, prod(p)))
 
-  fix.beta = FALSE;
-  if (is.null(max.iter.em)) {
-    if (length(num.samp) > 1) {
-      max.iter.em <- length(num.samp) - 1
-    } else {
-      max.iter.em <- 1
+  for (k in 1:max.iter.em) {
+    if (print.iter.em) {cat("EM Iteration=", k, "\n")}
+    penC[(q + 1):nrow(penC), (q + 1):ncol(penC)] <- (O.i*es.i)
+    cat("k = ", k, "\n")
+    if (reg == "linear") {
+      betas.em[k, ] <- coord.desc.lin(y = y, X = UW, sig.sq = sig.sq, Omega.inv = penC,
+                                          print.iter = FALSE,
+                                      max.iter = max.iter, eps = eps)$beta
+    } else if (reg == "logit") {
+      betas.em[k, ] <- coord.desc.logit(y = y, X = UW, Omega.inv = penC,
+                                            print.iter = FALSE,
+                                        max.iter = max.iter, eps = eps,
+                                        max.inner = max.inner)$beta
     }
-  }
-  if (length(num.samp) == 1) {
-    num.samp <- rep(num.samp, max.iter.em + 1)
-  }
-  if (length(burn.in) == 1) {
-    burn.in <- rep(burn.in, max.iter.em + 1)
-  }
-  if (length(thin) == 1) {
-    thin <- rep(thin, max.iter.em + 1)
-  }
-  if (print.iter.em) {cat("Set Starting Value\n")}
-
-  # Get initial values
-  if (reg == "logit") {
-    beta.fix <- coord.desc.logit(y = y, X = UW, Omega.inv = penC,
-                                 print.iter = FALSE, max.iter = max.iter, eps = eps,
-                                 max.inner = max.inner, joint.beta = joint.beta)$beta
-  } else if (reg == "linear") {
-    beta.fix <- coord.desc.lin(y = y, X = UW, Omega.inv = penC,
-                               print.iter = FALSE, max.iter = max.iter, eps = eps, sig.sq = sig.sq)$beta
-  }
-
-  betas <- matrix(nrow = max.iter.em, ncol = prod(dim(X)[-1]) + ifelse(is.null(U), 0, ncol(U)))
-  ess <- matrix(nrow = max.iter.em, ncol = prod(dim(X)[-1]))
-
-  for (i in 1:max.iter.em) {
-
-    if (print.iter.em) {cat("EM Iteration: ", i, "\n")}
-
-    beta.fix[beta.fix == 0] <- rnorm(sum(beta.fix == 0))
-    if (i == 1) {
-      r.start <- rep(1, prod(p))
-    } else {
-      r.start <- colMeans(samples$Ss)
+    beta.fix <- betas.em[k, ]
+    if (is.null(U.orig)) {
+      beta.fix <- beta.fix[-1]
     }
-
-    samples <- sampler(### Data and regression type
+    s.s <- sampler(### Data and regression type
       X = X, # Array of penalized covariates, covariance along second dimension is AR-1
       y = y, # Outcome
-      reg = reg, # Regression model for data
-      U = U, # Matrix of unpenalized covariates
+      reg = "linear", # Regression model for data
+      U = U.orig, # Matrix of unpenalized covariates
       ### Prior Choice for beta
       prior = prior,
       c = c,
       ### Prior Parameters and Likelihood Parameters
       Omega.half = Omega.half, # A dim(X) - 1 list of symmetric square roots of covariance matrices
-      Psi.half = Psi.half,   # A dim(X) - 1 list of symmetric square roots of covariance matrices
+      Psi.half = Psi.half,
       sig.sq = sig.sq,
       ### MCMC Parameters
       fix.beta = beta.fix, # Null if beta should not be fixed, a q + p vector otherwise
-      num.samp = num.samp[i + 1], # Number of samples to return
-      burn.in = burn.in[i + 1], # Number of burn-in samples to discard
-      thin = thin[i + 1], # Number of samples to thin by
-      print.iter = print.iter, # Indicator for whether or not iteration counter should be printed
+      num.samp = num.samp, # Number of samples to return
+      burn.in = burn.in, # Number of burn-in samples to discard
+      thin = thin, # Number of samples to thin by
+      print.iter = print.iter,
       max.iter.r = max.iter.r, # Maximum number of outer iterations in coordinate descent for r
       eps.r = eps.r, # Convergence threshold for coordinate descent r
       diag.app.r = diag.app.r, #
@@ -1577,48 +1554,38 @@ em.est <- function(print.iter.em = TRUE,
       max.inner.r = max.inner.r,
       sep.eta = sep.eta,
       V.r.inv = V.r.inv,
-      r.tilde = r.tilde,
+      r.tilde = r.start,
       r.start = r.start, # Starting value for MCMC for r
-      gamma.start = gamma.start,
       nu.r = nu.r, # t-distribution parameter for slice proposals for r
-      ### Hyperparameters (if prior/likelihood parameters not specified)
       pr.rho.a = pr.rho.a,
       pr.rho.b = pr.rho.b,
-      str = "uns")
-    if (prior != "spn") {
-      inv.ss <- matrix(rowMeans(apply(samples$Ss, 1, function(x) {tcrossprod(1/abs(x))})), nrow = prod(p), ncol = prod(p))
-    } else {
-      inv.ss <- matrix(rowMeans(apply(samples$Ss, 1, function(x) {tcrossprod(1/x)})), nrow = prod(p), ncol = prod(p))
-    }
-
-
-    penC[2:nrow(penC), 2:ncol(penC)] <- (O.i*inv.ss)
-
-    if (reg == "logit") {
-      beta.fix <- coord.desc.logit(y = y, X = UW, Omega.inv = penC,
-                                   print.iter = FALSE, max.iter = max.iter, eps = eps,
-                                   max.inner = max.inner, joint.beta = joint.beta)$beta
-    } else if (reg == "linear") {
-      beta.fix <- coord.desc.lin(y = y, X = UW, Omega.inv = penC,
-                                 print.iter = FALSE, max.iter = max.iter, eps = eps, sig.sq = sig.sq)$beta
-    }
-
-    if (is.null(U)) {
-      betas[i, ] <- beta.fix[-1]
-    } else {
-      betas[i, ] <- beta.fix
-    }
-    ess[i, ] <- coda::effectiveSize(samples$Ss)
-
-    if (i > 1) {
-      if (max(abs(betas[i - 1, ] - betas[i, ])) < eps.em) {
-        break
-      }
-    }
+      str = str,
+      pr.Omega.V.inv = pr.Omega.V.inv,
+      pr.Psi.V.inv = pr.Psi.V.inv,
+      pr.Omega.df = pr.Omega.df,
+      pr.Psi.df = pr.Psi.df,
+      pr.sig.sq.shape = pr.sig.sq.shape,
+      pr.sig.sq.rate = pr.sig.sq.rate)$Ss
+    es.is <- t(apply(1/s.s, 1, tcrossprod))
+    es.i <- matrix(colMeans(es.is, na.rm = TRUE), nrow = p, ncol = p)
   }
 
-  return(list("betas" = betas[1:i, ],
-              "esss" = ess[1:i, ]))
+  if (reg == "linear") {
+    betas.em[k + 1, ] <- coord.desc.lin(y = y, X = UW, sig.sq = sig.sq, Omega.inv = penC,
+                                        print.iter = FALSE,
+                                        max.iter = max.iter, eps = eps)$beta
+  } else if (reg == "logit") {
+    betas.em[k + 1, ] <- coord.desc.logit(y = y, X = UW, Omega.inv = penC,
+                                        print.iter = FALSE,
+                                        max.iter = max.iter, eps = eps,
+                                        max.inner = max.inner)$beta
+  }
+
+  if (is.null(U.orig)) {
+    betas.em <- betas.em[, -1]
+  }
+
+  return(list("betas" = betas.em))
 
 }
 
