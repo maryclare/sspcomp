@@ -1437,6 +1437,7 @@ sampler <- function(
 em.est <- function(max.iter.em = NULL,
                    print.iter.em = TRUE,
                    eps.em = NULL,
+                   beta.start = NULL,
                    ### Data and regression type
                    X, # Array of penalized covariates, covariance along second dimension is AR-1
                    y, # Outcome
@@ -1516,6 +1517,7 @@ em.est <- function(max.iter.em = NULL,
     if (print.iter.em) {cat("EM Iteration=", k, "\n")}
     penC[(q + 1):nrow(penC), (q + 1):ncol(penC)] <- (O.i*es.i)
     cat("k = ", k, "\n")
+    if ((k > 1 & !is.null(beta.start)) | (is.null(beta.start))) {
     if (reg == "linear") {
       betas.em[k, ] <- coord.desc.lin(y = y, X = UW, sig.sq = sig.sq, Omega.inv = penC,
                                           print.iter = FALSE,
@@ -1525,6 +1527,13 @@ em.est <- function(max.iter.em = NULL,
                                             print.iter = FALSE,
                                         max.iter = max.iter, eps = eps,
                                         max.inner = max.inner)$beta
+    }
+    } else {
+      if (is.null(U.orig)) {
+        betas.em[k, ] <- c(0, beta.start)
+      } else {
+        betas.em[k, ] <- beta.start
+      }
     }
     beta.fix <- betas.em[k, ]
     if (is.null(U.orig)) {
