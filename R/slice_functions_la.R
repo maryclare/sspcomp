@@ -1516,7 +1516,6 @@ em.est <- function(max.iter.em = NULL,
   for (k in 1:max.iter.em) {
     if (print.iter.em) {cat("EM Iteration=", k, "\n")}
     penC[(q + 1):nrow(penC), (q + 1):ncol(penC)] <- (O.i*es.i)
-    cat("k = ", k, "\n")
     if ((k > 1 & !is.null(beta.start)) | (is.null(beta.start))) {
     if (reg == "linear") {
       betas.em[k, ] <- coord.desc.lin(y = y, X = UW, sig.sq = sig.sq, Omega.inv = penC,
@@ -1527,6 +1526,13 @@ em.est <- function(max.iter.em = NULL,
                                             print.iter = FALSE,
                                         max.iter = max.iter, eps = eps,
                                         max.inner = max.inner)$beta
+    }
+    if (k > 1) {
+      diff <- mean((betas.em[k, ] - betas.em[k - 1, ])^2)
+      if (print.iter.em) {cat("Diff=", diff, "\n")}
+      if (diff < eps.em) {
+        break
+      }
     }
     } else {
       if (is.null(U.orig)) {
@@ -1579,8 +1585,11 @@ em.est <- function(max.iter.em = NULL,
     es.is <- t(apply(1/s.s, 1, tcrossprod))
     es.i <- matrix(colMeans(es.is, na.rm = TRUE), nrow = p, ncol = p)
     ess[k] <- min(effectiveSize(s.s))
+    if (print.iter.em) {cat("ESS=", ess[k], "\n")}
+
   }
 
+  if (k == max.iter.em) {
   if (reg == "linear") {
     betas.em[k + 1, ] <- coord.desc.lin(y = y, X = UW, sig.sq = sig.sq, Omega.inv = penC,
                                         print.iter = FALSE,
@@ -1590,6 +1599,10 @@ em.est <- function(max.iter.em = NULL,
                                         print.iter = FALSE,
                                         max.iter = max.iter, eps = eps,
                                         max.inner = max.inner)$beta
+  }
+  } else {
+    betas.em <- betas.em[1:k, ]
+    ess <- ess[1:k]
   }
 
   if (is.null(U.orig)) {
