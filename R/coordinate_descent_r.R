@@ -55,7 +55,7 @@ get.poly.coef <- function(kappa) {
 }
 
 solve.kappa <- function(kappa, prior) {
-  poly <- polynomial(get.poly.coef(kappa))
+  poly <- polynom::polynomial(get.poly.coef(kappa))
   sol <- solve(poly)
   sol <- Re(sol[Im(sol) == 0])
   if (prior == "sng" | prior == "spb") {

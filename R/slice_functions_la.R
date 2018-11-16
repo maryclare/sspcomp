@@ -1193,7 +1193,7 @@ sampler <- function(
               hess <- kappa.ll.dd(s.j = r.tilde[jj], kappa = get.kappa(prior = prior, Omega.inv = Omega.inv, beta = c(B),
                                                                        r = r.tilde, c = c, deltas = deltas,
                                                                        Psi.inv = Psi.inv, jj))
-            } else {
+            } else { # I don't think we ever use this because we reset values of r.tilde equal to zero
               hess <- 2*alpha1
             }
             V.r.inv[jj] <- -1*hess
