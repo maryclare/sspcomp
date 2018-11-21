@@ -700,7 +700,7 @@ sampler <- function(
   null.r.tilde <- is.null(r.tilde)
 
   if (!is.null(Neighbs)) {
-    Neighbs.ei <- eigen(Neighbs)
+    Neighbs.ei <- eigen(Neighbs, only.values = TRUE)
     lower.xi <- 1/Neighbs.ei$values[length(Neighbs.ei$values)]
     upper.xi <- 1/Neighbs.ei$values[1]
   }
