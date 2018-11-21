@@ -218,6 +218,27 @@ cond.rho.log <- function(theta, B, pr.a, pr.b, j) {
 
 }
 
+cond.xi.log <- function(theta, B, pr.a, pr.b, j, W.j, lower.xi, upper.xi) {
+
+  p <- dim(B)
+  B.mat <- mat(B, j)
+
+  O.i <- (diag(1, nrow = p[j], ncol = p[j]) - theta*W.j)
+
+  c1 <- prod(p[-j])*(1/2)*sum(log(eigen(O.i)$values))
+
+  c2 <- -sum(Matrix::diag(Matrix::crossprod(B.mat, Matrix::crossprod(O.i, B.mat))))/2
+
+  c3 <- dbeta((theta + lower.xi)/(upper.xi - lower.xi), pr.a, pr.b, log = TRUE)
+
+  # cat("rho=", rho, "\n")
+  # cat("c1=", c1, "\n")
+  # cat("c2=", c2, "\n")
+  # cat("c3=", c3, "\n")
+  return(c1 + c2 + c3)
+
+}
+
 cond.tilde.c.log <- function(S, tilde.c, pr.shape, pr.rate) {
 
   c1 <- (length(c(S))*exp(tilde.c) + 1 + (pr.shape - 1))*tilde.c
@@ -327,29 +348,29 @@ get.kron.row <- function(i, Omega) {
 
 #' @export
 sym.sq.root <- function(A) {
-  A.eig <- eigen((A + t(A))/2)
-  crossprod(t(A.eig$vectors), tcrossprod(diag(sqrt(ifelse(A.eig$values > 0, A.eig$values, 0)),
+  A.eig <- eigen((A + Matrix::t(A))/2)
+  Matrix::crossprod(Matrix::t(A.eig$vectors), Matrix::tcrossprod(diag(sqrt(ifelse(A.eig$values > 0, A.eig$values, 0)),
                                               nrow = nrow(A), ncol = ncol(A)), A.eig$vectors))
 }
 
 #' @export
 sym.sq.root.inv <- function(A) {
   A.eig <- eigen(A)
-  crossprod(t(A.eig$vectors), tcrossprod(diag(sqrt(ifelse(A.eig$values > 0, 1/A.eig$values, 0)),
+  Matrix::crossprod(Matrix::t(A.eig$vectors), Matrix::tcrossprod(diag(sqrt(ifelse(A.eig$values > 0, 1/A.eig$values, 0)),
                                               nrow = nrow(A), ncol = ncol(A)), A.eig$vectors))
 }
 
 #' @export
 ei.inv <- function(A) {
   A.eig <- eigen(A)
-  crossprod(t(A.eig$vectors), tcrossprod(diag(ifelse(A.eig$values > 0, 1/A.eig$values, 0),
+  Matrix::crossprod(Matrix::t(A.eig$vectors), Matrix::tcrossprod(diag(ifelse(A.eig$values > 0, 1/A.eig$values, 0),
                                               nrow = nrow(A), ncol = ncol(A)), A.eig$vectors))
 }
 
 #' @export
 amprod.mc <- function (A, M, k) {
   K <- length(dim(A))
-  AM <- crossprod(t(M), mat(A, k))
+  AM <- Matrix::crossprod(Matrix::t(M), mat(A, k))
   AMA <- array(AM, dim = c(dim(M)[1], dim(A)[-k]))
   return(aperm(AMA, match(1:K, c(k, (1:K)[-k]))))
 }
@@ -608,8 +629,8 @@ sampler <- function(
   prior = "sno",
   c = 1,
   ### Prior Parameters and Likelihood Parameters
-  Omega.half = NULL, # A dim(X) - 1 list of symmetric square roots of covariance matrices
-  Psi.half = NULL,   # A dim(X) - 1 list of symmetric square roots of covariance matrices
+  Omega.half = vector("list", length = length(dim(X)[-1])), # A dim(X) - 1 list of symmetric square roots of covariance matrices
+  Psi.half = vector("list", length = length(dim(X)[-1])),   # A dim(X) - 1 list of symmetric square roots of covariance matrices
   sig.sq = NULL,
   ### MCMC Parameters
   fix.beta = NULL, # Null if beta should not be fixed, a q + p vector otherwise
@@ -645,6 +666,9 @@ sampler <- function(
   ### Hyperparameters (if prior/likelihood parameters not specified)
   pr.rho.a = 1,
   pr.rho.b = 1,
+  pr.xi.a = 1,
+  pr.xi.b = 1,
+  Neighbs = NULL, # Neighbor matrix if needed
   str = "uns", # Variance-covariance matrix type
   pr.Omega.V.inv = lapply(dim(X)[-1], diag),
   pr.Psi.V.inv = lapply(dim(X)[-1], diag),
@@ -662,6 +686,8 @@ sampler <- function(
   sep.theta = sep.theta
   sep.eta = sep.eta
   nu.r = nu.r
+  Omega.half = Omega.half
+  Psi.half = Psi.half
   pr.Omega.V.inv = pr.Omega.V.inv
   pr.Psi.V.inv = pr.Psi.V.inv
   pr.Omega.df = pr.Omega.df
@@ -672,6 +698,12 @@ sampler <- function(
   null.V.r.inv <- is.null(V.r.inv)
   null.z.tilde <- is.null(z.tilde)
   null.r.tilde <- is.null(r.tilde)
+
+  if (!is.null(Neighbs)) {
+    Neighbs.ei <- eigen(Neighbs)
+    lower.xi <- 1/Neighbs.ei$values[length(Neighbs.ei$values)]
+    upper.xi <- 1/Neighbs.ei$values[1]
+  }
 
   n <- length(y)
   p <- dim(X)[-1]
@@ -732,11 +764,19 @@ sampler <- function(
 
   # Set starting values for rho if Omega.half[[1]] is NULL and is not 1x1
   if (null.Omega.half[1] & dim(X.arr)[2] > 1) {
-    rho <- 0
+    if (is.null(Neighbs)) {
+      rho <- 0
+    } else {
+      rho <- (lower.xi + upper.xi)/2
+    }
   }
   if (prior == "spn" & dim(X.arr)[2] > 1) {
     if (null.Psi.half[1]) {
-      rho.psi <- 0
+      if (is.null(Neighbs)) {
+        rho.psi <- 0
+      } else {
+        rho.psi <- (lower.xi + upper.xi)/2
+      }
     }
   }
 
@@ -761,7 +801,11 @@ sampler <- function(
       if (i != 1) {
         Omega.half[[i]] <- diag(1, nrow = p[i], ncol = p[i])
       } else {
-        Omega.half[[i]] <- sym.sq.root(make.ar.mat(p = p[i], rho = rho, inv = FALSE))
+        if (is.null(Neighbs)) {
+          Omega.half[[i]] <- sym.sq.root(make.ar.mat(p = p[i], rho = rho, inv = FALSE))
+        } else {
+          Omega.half[[i]] <- sym.sq.root(diag(1, nrow = p[i], ncol = p[i]) - rho*W)
+        }
       }
       if (i > 1) {
         res.Omega[[i]] <- array(dim = c(num.samp, p[i], p[i]))
@@ -775,7 +819,11 @@ sampler <- function(
         if (i != 1) {
           Psi.half[[i]] <- diag(1, nrow = p[i], ncol = p[i])
         } else {
-          Psi.half[[i]] <- sym.sq.root(make.ar.mat(p = p[i], rho = rho.psi, inv = FALSE))
+          if (is.null(Neighbs)) {
+            Psi.half[[i]] <- sym.sq.root(make.ar.mat(p = p[i], rho = rho.psi, inv = FALSE))
+          } else {
+            Psi.half[[i]] <- sym.sq.root(diag(1, nrow = p[i], ncol = p[i]) - rho.psi*W)
+          }
         }
         if (i > 1) {
           res.Psi[[i]] <- array(dim = c(num.samp, p[i], p[i]))
@@ -1209,7 +1257,7 @@ sampler <- function(
               P.i <- do.call("%x%", Psi.inv[length(Psi.inv):1])
             }
           }
-          V.r.inv.1 <- (-1/2)*(O.i)*tcrossprod(c(B)/r.tilde^2)*(matrix(1,
+          V.r.inv.1 <- (-1/2)*(O.i)*Matrix::tcrossprod(c(B)/r.tilde^2)*(matrix(1,
                                                                        nrow = length(r.tilde),
                                                                        ncol = length(r.tilde)) +
                                                                   5*diag(1, nrow = length(r.tilde), ncol = length(r.tilde)))
@@ -1231,7 +1279,7 @@ sampler <- function(
             V.r.inv <- block.eta*(V.r.inv)
           }
           V.r.half <- sym.sq.root.inv(V.r.inv)
-          V.r.inv <- ei.inv(crossprod(V.r.half)) # Make sure it's pos-semi-def
+          V.r.inv <- ei.inv(Matrix::crossprod(V.r.half)) # Make sure it's pos-semi-def
         }
       }
       }
@@ -1273,15 +1321,28 @@ sampler <- function(
       }
       if (k == 1 & null.Omega.half[1]) {
         if (print.iter) {cat("Sample rho\n")}
+        if (is.null(Neighbs)) {
         rho <- slice(x.tilde = rho, ll.fun = "cond.rho.log", var.lim = c(-1, 1)*(1 - 10^(-7)),
                      ll.args = list("B" = Covar,
                                     "pr.a" = pr.rho.a,
                                     "pr.b" = pr.rho.b,
                                     "j" = k))
+        Omega.inv[[k]] <- make.ar.mat(p = p[k], rho = rho, inv = TRUE)
+        } else {
+          rho <- slice(x.tilde = rho, ll.fun = "cond.xi.log", var.lim = c(lower.xi, upper.xi),
+                       ll.args = list("B" = Covar,
+                                      "pr.a" = pr.xi.a,
+                                      "pr.b" = pr.xi.b,
+                                      "j" = k,
+                                      "lower.xi" = lower.xi,
+                                      "upper.xi" = upper.xi,
+                                      "W.j" = Neighbs))
+          Omega.inv[[k]] <- diag(1, nrow = p[k], ncol = p[k]) - rho*Neighbs
+        }
         # if (print.iter) {
         #   cat("rho = ", rho, "\n")
         # }
-        Omega.inv[[k]] <- make.ar.mat(p = p[k], rho = rho, inv = TRUE)
+
       } else {
         if (print.iter) {cat("Sample Omega.inv ", k, " \n")}
         Covar <- matrix(apply(Covar, k, "c"), nrow = prod(p[-k]), ncol = p[k])
@@ -1315,6 +1376,7 @@ sampler <- function(
         }
         if (k == 1 & null.Psi.half[1]) {
           if (print.iter) {cat("Sample rho.psi\n")}
+          if (is.null(Neighbs)) {
           rho.psi <- slice(x.tilde = rho.psi, ll.fun = "cond.rho.log", var.lim = c(-1, 1)*(1 - 10^(-7)),
                            ll.args = list("B" = Covar,
                                           "pr.a" = pr.rho.a,
@@ -1322,6 +1384,17 @@ sampler <- function(
                                           "j" = k))
 
           Psi.inv[[k]] <- make.ar.mat(p = p[k], rho = rho.psi, inv = TRUE)
+          } else {
+            rho.psi <- slice(x.tilde = rho.psi, ll.fun = "cond.xi.log", var.lim = c(lower.xi, upper.xi),
+                         ll.args = list("B" = Covar,
+                                        "pr.a" = pr.xi.a,
+                                        "pr.b" = pr.xi.b,
+                                        "j" = k,
+                                        "lower.xi" = lower.xi,
+                                        "upper.xi" = upper.xi,
+                                        "W.j" = Neighbs))
+            Psi.inv[[k]] <- diag(1, nrow = p[k], ncol = p[k]) - rho.psi*Neighbs
+          }
         } else {
           if (print.iter) {cat("Sample Psi.inv ", k, " \n")}
           Covar <- matrix(apply(Covar, k, "c"), nrow = prod(p[-k]), ncol = p[k])
@@ -1363,7 +1436,7 @@ sampler <- function(
     }
 
     if (reg == "linear" & null.sig.sq) {
-      resid <- y - crossprod(t(U), gamma) - crossprod(t(X), c(B))
+      resid <- y - Matrix::crossprod(t(U), gamma) - Matrix::crossprod(t(X), c(B))
       sig.sq <- 1/rgamma(1, shape = pr.sig.sq.shape + length(resid)/2, rate = pr.sig.sq.rate + sum(resid^2)/2)
     }
 
@@ -1505,12 +1578,12 @@ em.est <- function(max.iter.em = NULL,
   p <- dim(X)[-1]
   n <- dim(X)[1]
 
-  Omega.inv <- lapply(Omega.half, function(x) {ei.inv(crossprod(x))})
+  Omega.inv <- lapply(Omega.half, function(x) {ei.inv(Matrix::crossprod(x))})
   O.i <- do.call("%x%", Omega.inv[length(Omega.inv):1])
 
   penC <- matrix(0, nrow = ncol(UW), ncol = ncol(UW))
   betas.em <- matrix(nrow = max.iter.em + 1, ncol = ncol(UW))
-  es.i <- tcrossprod(rep(1, prod(p)))
+  es.i <- Matrix::tcrossprod(rep(1, prod(p)))
   ess <- numeric(max.iter.em)
 
   for (k in 1:max.iter.em) {
