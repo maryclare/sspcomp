@@ -804,7 +804,7 @@ sampler <- function(
         if (is.null(Neighbs)) {
           Omega.half[[i]] <- sym.sq.root(make.ar.mat(p = p[i], rho = rho, inv = FALSE))
         } else {
-          Omega.half[[i]] <- sym.sq.root(diag(1, nrow = p[i], ncol = p[i]) - rho*W)
+          Omega.half[[i]] <- sym.sq.root(diag(1, nrow = p[i], ncol = p[i]) - rho*Neighbs)
         }
       }
       if (i > 1) {
@@ -822,7 +822,7 @@ sampler <- function(
           if (is.null(Neighbs)) {
             Psi.half[[i]] <- sym.sq.root(make.ar.mat(p = p[i], rho = rho.psi, inv = FALSE))
           } else {
-            Psi.half[[i]] <- sym.sq.root(diag(1, nrow = p[i], ncol = p[i]) - rho.psi*W)
+            Psi.half[[i]] <- sym.sq.root(diag(1, nrow = p[i], ncol = p[i]) - rho.psi*Neighbs)
           }
         }
         if (i > 1) {
