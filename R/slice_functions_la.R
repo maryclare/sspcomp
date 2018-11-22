@@ -225,11 +225,11 @@ cond.xi.log <- function(theta, B, pr.a, pr.b, j, W.j, lower.xi, upper.xi) {
 
   O.i <- (diag(1, nrow = p[j], ncol = p[j]) - theta*W.j)
 
-  c1 <- prod(p[-j])*(1/2)*sum(log(eigen(O.i)$values))
+  c1 <- prod(p[-j])*(1/2)*sum(log(eigen(O.i, only.values = TRUE)$values))
 
   c2 <- -sum(Matrix::diag(Matrix::crossprod(B.mat, Matrix::crossprod(O.i, B.mat))))/2
 
-  c3 <- dbeta((theta + lower.xi)/(upper.xi - lower.xi), pr.a, pr.b, log = TRUE)
+  c3 <- dbeta((theta - lower.xi)/(upper.xi - lower.xi), pr.a, pr.b, log = TRUE)
 
   # cat("rho=", rho, "\n")
   # cat("c1=", c1, "\n")
