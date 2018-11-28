@@ -7,6 +7,11 @@ get.beta.blocks <- function(X, U = NULL, min.block.size = 25, no.eig = TRUE) {
   } else {
     q <- dim(U)[-1]
   }
+
+  if (min.block.size > prod(p) + q) {
+    min.block.size <- prod(p) + q - 1
+  }
+
   if (no.eig) {
     ends <- seq(1, prod(p) + q, by = min.block.size)
     joint.beta <- vector("list", length = length(ends) - 1)
@@ -67,7 +72,7 @@ samp.Omega.inv <- function(Beta, pr.V.inv = diag(1, nrow = ncol(Beta), ncol = nc
   if (str == "uns") {
     V.inv <- crossprod(Beta) + pr.V.inv
     df <- nrow(Beta) + pr.df
-    V.half <- sym.sq.root.inv((V.inv + t(V.inv))/2)
+    V.half <- as.matrix(sym.sq.root.inv((V.inv + t(V.inv))/2))
     return(tcrossprod(crossprod(V.half, matrix(rnorm(p*df), nrow = p, ncol = df))))
     # return(matrix(rWishart(1, df, solve(V.inv))[, , 1], nrow = p, ncol = p))
   } else if (str == "het") {
@@ -218,16 +223,22 @@ cond.rho.log <- function(theta, B, pr.a, pr.b, j) {
 
 }
 
-cond.xi.log <- function(theta, B, pr.a, pr.b, j, W.j, lower.xi, upper.xi) {
+cond.xi.log <- function(theta, B, pr.a, pr.b, j, W.j, lower.xi, upper.xi, W.ei,
+                        sum.B.mat.sq = NULL, sum.BWB = NULL) {
 
   p <- dim(B)
-  B.mat <- mat(B, j)
 
-  O.i <- (diag(1, nrow = p[j], ncol = p[j]) - theta*W.j)
+  if (is.null(sum.B.mat.sq)) {
+    sum.B.mat.sq <- sum(B^2)
+  }
+  if (is.null(sum.BWB)) {
+    B.mat <- mat(B, j)
+    sum.BWB <- sum(Matrix::diag(Matrix::crossprod(B.mat, Matrix::crossprod(W.j, B.mat))))
+  }
 
-  c1 <- prod(p[-j])*(1/2)*sum(log(eigen(O.i, only.values = TRUE)$values))
+  c1 <- prod(p[-j])*(1/2)*sum(log(1 - theta*W.ei$values))
 
-  c2 <- -sum(Matrix::diag(Matrix::crossprod(B.mat, Matrix::crossprod(O.i, B.mat))))/2
+  c2 <- -(sum.B.mat.sq - theta*sum.BWB)/2
 
   c3 <- dbeta((theta - lower.xi)/(upper.xi - lower.xi), pr.a, pr.b, log = TRUE)
 
@@ -349,22 +360,22 @@ get.kron.row <- function(i, Omega) {
 #' @export
 sym.sq.root <- function(A) {
   A.eig <- eigen((A + Matrix::t(A))/2)
-  Matrix::crossprod(Matrix::t(A.eig$vectors), Matrix::tcrossprod(diag(sqrt(ifelse(A.eig$values > 0, A.eig$values, 0)),
-                                              nrow = nrow(A), ncol = ncol(A)), A.eig$vectors))
+  Matrix::crossprod(Matrix::t(A.eig$vectors), Matrix::tcrossprod(Matrix(diag(sqrt(ifelse(A.eig$values > 0, A.eig$values, 0)),
+                                              nrow = nrow(A), ncol = ncol(A))), A.eig$vectors))
 }
 
 #' @export
 sym.sq.root.inv <- function(A) {
   A.eig <- eigen(A)
-  Matrix::crossprod(Matrix::t(A.eig$vectors), Matrix::tcrossprod(diag(sqrt(ifelse(A.eig$values > 0, 1/A.eig$values, 0)),
-                                              nrow = nrow(A), ncol = ncol(A)), A.eig$vectors))
+  Matrix::crossprod(Matrix::t(A.eig$vectors), Matrix::tcrossprod(Matrix(diag(sqrt(ifelse(A.eig$values > 0, 1/A.eig$values, 0)),
+                                              nrow = nrow(A), ncol = ncol(A))), A.eig$vectors))
 }
 
 #' @export
 ei.inv <- function(A) {
   A.eig <- eigen(A)
-  Matrix::crossprod(Matrix::t(A.eig$vectors), Matrix::tcrossprod(diag(ifelse(A.eig$values > 0, 1/A.eig$values, 0),
-                                              nrow = nrow(A), ncol = ncol(A)), A.eig$vectors))
+  Matrix::crossprod(Matrix::t(A.eig$vectors), Matrix::tcrossprod(Matrix(diag(ifelse(A.eig$values > 0, 1/A.eig$values, 0),
+                                              nrow = nrow(A), ncol = ncol(A))), A.eig$vectors))
 }
 
 #' @export
@@ -700,7 +711,7 @@ sampler <- function(
   null.r.tilde <- is.null(r.tilde)
 
   if (!is.null(Neighbs)) {
-    Neighbs.ei <- eigen(Neighbs, only.values = TRUE)
+    Neighbs.ei <- eigen(Neighbs)
     lower.xi <- 1/Neighbs.ei$values[length(Neighbs.ei$values)]
     upper.xi <- 1/Neighbs.ei$values[1]
   }
@@ -804,7 +815,8 @@ sampler <- function(
         if (is.null(Neighbs)) {
           Omega.half[[i]] <- sym.sq.root(make.ar.mat(p = p[i], rho = rho, inv = FALSE))
         } else {
-          Omega.half[[i]] <- sym.sq.root(diag(1, nrow = p[i], ncol = p[i]) - rho*Neighbs)
+          Omega.half[[i]] <- Matrix::crossprod(Matrix::t(Neighbs.ei$vectors), Matrix::tcrossprod(diag(sqrt(ifelse(1 - rho*Neighbs.ei$values > 0, 1 - rho*Neighbs.ei$values, 0)),
+                                                                              nrow = nrow(Neighbs), ncol = ncol(Neighbs)), Neighbs.ei$vectors))
         }
       }
       if (i > 1) {
@@ -822,7 +834,8 @@ sampler <- function(
           if (is.null(Neighbs)) {
             Psi.half[[i]] <- sym.sq.root(make.ar.mat(p = p[i], rho = rho.psi, inv = FALSE))
           } else {
-            Psi.half[[i]] <- sym.sq.root(diag(1, nrow = p[i], ncol = p[i]) - rho.psi*Neighbs)
+            Psi.half[[i]] <- Matrix::crossprod(Matrix::t(Neighbs.ei$vectors), Matrix::tcrossprod(diag(sqrt(ifelse(1 - rho*Neighbs.ei$vectors$values > 0, 1 - rho.psi*Neighbs.ei$vectors$values, 0)),
+                                                                                                      nrow = nrow(Neighbs), ncol = ncol(Neighbs)), Neighbs.ei$vectors))
           }
         }
         if (i > 1) {
@@ -1327,8 +1340,17 @@ sampler <- function(
                                     "pr.a" = pr.rho.a,
                                     "pr.b" = pr.rho.b,
                                     "j" = k))
+
         Omega.inv[[k]] <- make.ar.mat(p = p[k], rho = rho, inv = TRUE)
+
+        Omega[[k]] <- make.ar.mat(p = p[k], rho = rho, inv = FALSE)
+        Omega.half[[k]] <- sym.sq.root(Omega[[k]])
+        Omega.half.inv[[k]] <- sym.sq.root(Omega.inv[[k]])
+
         } else {
+          sum.B.mat.sq <- sum(c(B))
+          B.mat <- mat(B, k)
+          sum.BWB <- sum(Matrix::diag(Matrix::crossprod(B.mat, Matrix::crossprod(Neighbs, B.mat))))
           rho <- slice(x.tilde = rho, ll.fun = "cond.xi.log", var.lim = c(lower.xi, upper.xi),
                        ll.args = list("B" = Covar,
                                       "pr.a" = pr.xi.a,
@@ -1336,12 +1358,24 @@ sampler <- function(
                                       "j" = k,
                                       "lower.xi" = lower.xi,
                                       "upper.xi" = upper.xi,
-                                      "W.j" = Neighbs))
+                                      "W.j" = Neighbs,
+                                      "W.ei" = Neighbs.ei,
+                                      "sum.B.mat.sq" = sum.B.mat.sq,
+                                      "sum.BWB" = sum.BWB))
+          if (print.iter) {cat("Compute Omega Inv\n")}
           Omega.inv[[k]] <- diag(1, nrow = p[k], ncol = p[k]) - rho*Neighbs
+          if (print.iter) {cat("Compute Omega Half\n")}
+          Omega.half[[k]] <-  Matrix::crossprod(Matrix::tcrossprod(Matrix(diag(sqrt(sqrt(ifelse(1 - rho*Neighbs.ei$values > 0, 1 - rho*Neighbs.ei$values, 0))),
+                                                                               nrow = nrow(Neighbs), ncol = ncol(Neighbs))), Neighbs.ei$vectors))
+
+          # I don't save this
+          # if (print.iter) {cat("Compute Omega\n")}
+          # Omega[[k]] <- Matrix::crossprod(Omega.half[[k]])
+
+          if (print.iter) {cat("Compute Omega Half Inv\n")}
+          Omega.half.inv[[k]] <- Matrix::crossprod(Matrix::tcrossprod(Matrix(diag(sqrt(sqrt(ifelse(1 - rho*Neighbs.ei$values > 0, 1/(1 - rho*Neighbs.ei$values), 0))),
+                                                                                                          nrow = nrow(Neighbs), ncol = ncol(Neighbs))), Neighbs.ei$vectors))
         }
-        # if (print.iter) {
-        #   cat("rho = ", rho, "\n")
-        # }
 
       } else {
         if (print.iter) {cat("Sample Omega.inv ", k, " \n")}
@@ -1349,13 +1383,14 @@ sampler <- function(
         Omega.inv[[k]] <- samp.Omega.inv(Beta = Covar, str = str,
                                          pr.V.inv = pr.Omega.V.inv[[k]],
                                          pr.df = pr.Omega.df[[k]])
+        Omega[[k]] <- ei.inv(Omega.inv[[k]])
+        Omega.half[[k]] <- sym.sq.root(Omega[[k]])
+        Omega.half.inv[[k]] <- sym.sq.root(Omega.inv[[k]])
       }
-      Omega[[k]] <- ei.inv(Omega.inv[[k]])
-      Omega.half[[k]] <- sym.sq.root(Omega[[k]])
-      Omega.half.inv[[k]] <- sym.sq.root(Omega.inv[[k]])
+
 
       if (i > burn.in & (i - burn.in)%%thin == 0 & k != 1) {
-        res.Omega[[k]][(i - burn.in)/thin, , ] <- Omega[[k]]
+        res.Omega[[k]][(i - burn.in)/thin, , ] <- as.matrix(Omega[[k]])
       }
 
       Z <- atrans.mc(B/S, Omega.half.inv)
@@ -1384,7 +1419,15 @@ sampler <- function(
                                           "j" = k))
 
           Psi.inv[[k]] <- make.ar.mat(p = p[k], rho = rho.psi, inv = TRUE)
+          Psi[[k]] <- make.ar.mat(p = p[k], rho = rho.psi, inv = FALSE)
+
+          Psi.half[[k]] <- sym.sq.root(Psi[[k]])
+          Psi.half.inv[[k]] <- sym.sq.root(Psi.inv[[k]])
+
           } else {
+            sum.B.mat.sq <- sum(c(B))
+            B.mat <- mat(B, k)
+            sum.BWB <- sum(Matrix::diag(Matrix::crossprod(B.mat, Matrix::crossprod(Neighbs, B.mat))))
             rho.psi <- slice(x.tilde = rho.psi, ll.fun = "cond.xi.log", var.lim = c(lower.xi, upper.xi),
                          ll.args = list("B" = Covar,
                                         "pr.a" = pr.xi.a,
@@ -1392,8 +1435,17 @@ sampler <- function(
                                         "j" = k,
                                         "lower.xi" = lower.xi,
                                         "upper.xi" = upper.xi,
-                                        "W.j" = Neighbs))
+                                        "W.j" = Neighbs,
+                                        "W.ei" = Neighbs.ei,
+                                        "sum.B.mat.sq" = sum.B.mat.sq,
+                                        "sum.BWB" = sum.BWB))
             Psi.inv[[k]] <- diag(1, nrow = p[k], ncol = p[k]) - rho.psi*Neighbs
+
+            Psi.half[[k]] <-  Matrix::crossprod(Matrix::tcrossprod(Matrix(diag(sqrt(sqrt(ifelse(1 - rho*Neighbs.ei$values > 0, 1 - rho.psi*Neighbs.ei$values, 0))),
+                                                                                                         nrow = nrow(Neighbs), ncol = ncol(Neighbs))), Neighbs.ei$vectors))
+            # Psi[[k]] <- Matrix::crossprod(Psi.half[[k]])
+            Psi.half.inv[[k]] <- Matrix::crossprod(Matrix::tcrossprod(Matrix(diag(sqrt(sqrt(ifelse(1 - rho*Neighbs.ei$values > 0, 1/(1 - rho.psi*Neighbs.ei$values), 0))),
+                                                                                                            nrow = nrow(Neighbs), ncol = ncol(Neighbs))), Neighbs.ei$vectors))
           }
         } else {
           if (print.iter) {cat("Sample Psi.inv ", k, " \n")}
@@ -1401,14 +1453,15 @@ sampler <- function(
           Psi.inv[[k]] <- samp.Omega.inv(Beta = Covar, str = str,
                                          pr.V.inv = pr.Psi.V.inv[[k]],
                                          pr.df = pr.Psi.df[[k]])
+
+          Psi[[k]] <- ei.inv(Psi.inv[[k]])
+          Psi.half[[k]] <- sym.sq.root(Psi[[k]])
+          Psi.half.inv[[k]] <- sym.sq.root(Psi.inv[[k]])
         }
-        Psi[[k]] <- ei.inv(Psi.inv[[k]])
         if (i > burn.in & (i - burn.in)%%thin == 0 & k != 1) {
-          res.Psi[[k]][(i - burn.in)/thin, , ] <- Psi[[k]]
+          res.Psi[[k]][(i - burn.in)/thin, , ] <- as.matrix(Psi[[k]])
         }
 
-        Psi.half[[k]] <- sym.sq.root(Psi[[k]])
-        Psi.half.inv[[k]] <- sym.sq.root(Psi.inv[[k]])
 
         S <- atrans.mc(atrans.mc(S, Psi.half.inv.old), Psi.half)
         Z <- atrans.mc(B/S, Omega.half.inv)
@@ -1420,17 +1473,17 @@ sampler <- function(
     for (k in record.which) {
       if (i > burn.in & (i - burn.in)%%thin == 0 & k != 1) {
         if (prior == "sno") {
-          res.Sigma[[k]][(i - burn.in)/thin, , ] <- Omega[[k]]
+          res.Sigma[[k]][(i - burn.in)/thin, , ] <- as.matrix(Omega[[k]])
         } else if (prior == "sng") {
           es <- c^(-1/2)*gamma(c + 1/2)/gamma(c)
           els <- (1 - es^2)*diag(1, nrow = p[k], ncol = p[k]) + es^2*matrix(1, nrow = p[k], ncol = p[k])
-          res.Sigma[[k]][(i - burn.in)/thin, , ] <- Omega[[k]]*els
+          res.Sigma[[k]][(i - burn.in)/thin, , ] <- as.matrix(Omega[[k]])*els
         } else if (prior == "spb") {
           es <- sqrt(pi/2)*gamma(2/c)/(sqrt(gamma(1/c)*gamma(3/c)))
           els <- (1 - es^2)*diag(1, nrow = p[k], ncol = p[k]) + es^2*matrix(1, nrow = p[k], ncol = p[k])
-          res.Sigma[[k]][(i - burn.in)/thin, , ] <- Omega[[k]]*els
+          res.Sigma[[k]][(i - burn.in)/thin, , ] <- as.matrix(Omega[[k]])*els
         } else if (prior == "spn") {
-          res.Sigma[[k]][(i - burn.in)/thin, , ] <- Omega[[k]]*Psi[[k]]
+          res.Sigma[[k]][(i - burn.in)/thin, , ] <- as.matrix(Omega[[k]])*as.matrix(Psi[[k]])
         }
       }
     }
