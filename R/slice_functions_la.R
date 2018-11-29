@@ -1335,7 +1335,8 @@ sampler <- function(
       if (k == 1 & null.Omega.half[1]) {
         if (print.iter) {cat("Sample rho\n")}
         if (is.null(Neighbs)) {
-        rho <- slice(x.tilde = rho, ll.fun = "cond.rho.log", var.lim = c(-1, 1)*(1 - 10^(-7)),
+        rho <- slice(x.tilde = rho, ll.fun = "cond.rho.log",
+                     var.lim = c(-1, 1)*(1 - 10^(-7)), # Avoid boundaries
                      ll.args = list("B" = Covar,
                                     "pr.a" = pr.rho.a,
                                     "pr.b" = pr.rho.b,
@@ -1351,7 +1352,8 @@ sampler <- function(
           sum.B.mat.sq <- sum(c(B))
           B.mat <- mat(B, k)
           sum.BWB <- sum(Matrix::diag(Matrix::crossprod(B.mat, Matrix::crossprod(Neighbs, B.mat))))
-          rho <- slice(x.tilde = rho, ll.fun = "cond.xi.log", var.lim = c(lower.xi, upper.xi),
+          rho <- slice(x.tilde = rho, ll.fun = "cond.xi.log",
+                       var.lim = c(lower.xi, upper.xi)*(1 - 10^(-7)), # Avoid boundaries
                        ll.args = list("B" = Covar,
                                       "pr.a" = pr.xi.a,
                                       "pr.b" = pr.xi.b,
@@ -1428,7 +1430,8 @@ sampler <- function(
             sum.B.mat.sq <- sum(c(B))
             B.mat <- mat(B, k)
             sum.BWB <- sum(Matrix::diag(Matrix::crossprod(B.mat, Matrix::crossprod(Neighbs, B.mat))))
-            rho.psi <- slice(x.tilde = rho.psi, ll.fun = "cond.xi.log", var.lim = c(lower.xi, upper.xi),
+            rho.psi <- slice(x.tilde = rho.psi, ll.fun = "cond.xi.log",
+                             var.lim = c(lower.xi, upper.xi)*(1 - 10^(-7)),
                          ll.args = list("B" = Covar,
                                         "pr.a" = pr.xi.a,
                                         "pr.b" = pr.xi.b,
