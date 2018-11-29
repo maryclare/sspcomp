@@ -834,7 +834,7 @@ sampler <- function(
           if (is.null(Neighbs)) {
             Psi.half[[i]] <- sym.sq.root(make.ar.mat(p = p[i], rho = rho.psi, inv = FALSE))
           } else {
-            Psi.half[[i]] <- Matrix::crossprod(Matrix::t(Neighbs.ei$vectors), Matrix::tcrossprod(diag(sqrt(ifelse(1 - rho*Neighbs.ei$vectors$values > 0, 1 - rho.psi*Neighbs.ei$vectors$values, 0)),
+            Psi.half[[i]] <- Matrix::crossprod(Matrix::t(Neighbs.ei$vectors), Matrix::tcrossprod(diag(sqrt(ifelse(1 - rho*Neighbs.ei$values > 0, 1 - rho.psi*Neighbs.ei$values, 0)),
                                                                                                       nrow = nrow(Neighbs), ncol = ncol(Neighbs)), Neighbs.ei$vectors))
           }
         }
