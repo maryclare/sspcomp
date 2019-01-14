@@ -1638,7 +1638,7 @@ em.est <- function(max.iter.em = NULL,
   O.i <- do.call("%x%", Omega.inv[length(Omega.inv):1])
 
   penC <- matrix(0, nrow = ncol(UW), ncol = ncol(UW))
-  betas.em <- matrix(nrow = max.iter.em + 1, ncol = ncol(UW))
+  betas.em <- matrix(NA, nrow = max.iter.em + 1, ncol = ncol(UW))
   es.i <- Matrix::tcrossprod(rep(1, prod(p)))
   ess <- rep(NA, max.iter.em)
 
@@ -1658,8 +1658,9 @@ em.est <- function(max.iter.em = NULL,
     }
     if (k > 1) {
       diff <- mean((betas.em[k, ] - betas.em[k - 1, ])^2)
+      zero.beta <- min(abs(betas.em[k, ])) == 0
       if (print.iter.em) {cat("Diff=", diff, "\n")}
-      if (diff < eps.em) {
+      if (diff < eps.em | zero.beta) {
         break
       }
     }
