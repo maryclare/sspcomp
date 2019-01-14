@@ -844,12 +844,12 @@ sampler <- function(
       }
     }
   }
-  Omega <- lapply(Omega.half, function(x) {crossprod(x)})
+  Omega <- lapply(Omega.half, function(x) {Matrix::crossprod(x)})
   Omega.inv <- lapply(Omega, function(x) {ei.inv(x)})
   Omega.half.inv <- lapply(Omega.half, function(x) {ei.inv(x)})
 
   if (prior == "spn") {
-    Psi <- lapply(Psi.half, function(x) {crossprod(x)})
+    Psi <- lapply(Psi.half, function(x) {Matrix::crossprod(x)})
     Psi.inv <- lapply(Psi, function(x) {ei.inv(x)})
     Psi.half.inv <- lapply(Psi.half, function(x) {ei.inv(x)})
   }
@@ -1640,11 +1640,11 @@ em.est <- function(max.iter.em = NULL,
   penC <- matrix(0, nrow = ncol(UW), ncol = ncol(UW))
   betas.em <- matrix(nrow = max.iter.em + 1, ncol = ncol(UW))
   es.i <- Matrix::tcrossprod(rep(1, prod(p)))
-  ess <- numeric(max.iter.em)
+  ess <- rep(NA, max.iter.em)
 
   for (k in 1:max.iter.em) {
     if (print.iter.em) {cat("EM Iteration=", k, "\n")}
-    penC[(q + 1):nrow(penC), (q + 1):ncol(penC)] <- (O.i*es.i)
+    penC[(q + 1):nrow(penC), (q + 1):ncol(penC)] <- as.matrix((O.i*es.i))
     if ((k > 1 & !is.null(beta.start)) | (is.null(beta.start))) {
     if (reg == "linear") {
       betas.em[k, ] <- coord.desc.lin(y = y, X = UW, sig.sq = sig.sq, Omega.inv = penC,
@@ -1711,9 +1711,10 @@ em.est <- function(max.iter.em = NULL,
       pr.Psi.df = pr.Psi.df,
       pr.sig.sq.shape = pr.sig.sq.shape,
       pr.sig.sq.rate = pr.sig.sq.rate)$Ss
+
     es.is <- t(apply(1/s.s, 1, tcrossprod))
-    es.i <- matrix(colMeans(es.is, na.rm = TRUE), nrow = p, ncol = p)
-    ess[k] <- min(effectiveSize(s.s))
+    es.i <- matrix(colMeans(es.is, na.rm = TRUE), nrow = prod(p), ncol = prod(p))
+    ess[k] <- min(coda::effectiveSize(s.s))
     if (print.iter.em) {cat("ESS=", ess[k], "\n")}
 
   }
