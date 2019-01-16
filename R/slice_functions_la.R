@@ -1658,7 +1658,11 @@ em.est <- function(max.iter.em = NULL,
     }
     if (k > 1) {
       diff <- mean((betas.em[k, ] - betas.em[k - 1, ])^2)
-      zero.beta <- min(abs(betas.em[k, ])) == 0
+      if (!is.null(U.orig)) {
+        zero.beta <- min(abs(betas.em[k, ])) == 0
+      } else {
+        zero.beta <- min(abs(betas.em[k, -1])) == 0
+      }
       if (print.iter.em) {cat("Diff=", diff, "\n")}
       if (diff < eps.em | zero.beta) {
         break
