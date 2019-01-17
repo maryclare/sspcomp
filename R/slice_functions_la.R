@@ -1643,7 +1643,7 @@ em.est <- function(max.iter.em = NULL,
   ess <- rep(NA, max.iter.em)
 
   for (k in 1:max.iter.em) {
-    if (print.iter.em) {cat("EM Iteration=", k, "\n")}
+    if (print.iter.em) {cat(toupper(prior), " ", c, " EM Iteration=", k, "\n")}
     penC[(q + 1):nrow(penC), (q + 1):ncol(penC)] <- as.matrix((O.i*es.i))
     if ((k > 1 & !is.null(beta.start)) | (is.null(beta.start))) {
     if (reg == "linear") {
