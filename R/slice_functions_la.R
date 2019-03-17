@@ -782,7 +782,7 @@ sampler <- function(
     if (is.null(Neighbs)) {
       rho <- 0
     } else {
-      rho <- (lower.xi + upper.xi)/2
+      rho <- 0
     }
   }
   if (prior == "spn" & dim(X.arr)[2] > 1) {
@@ -790,7 +790,7 @@ sampler <- function(
       if (is.null(Neighbs)) {
         rho.psi <- 0
       } else {
-        rho.psi <- (lower.xi + upper.xi)/2
+        rho.psi <- 0
       }
     }
   }
