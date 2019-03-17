@@ -675,10 +675,14 @@ sampler <- function(
   nu = NULL, # t-distribution parameter for slice proposals for beta (and r if not specified)
   nu.r = nu, # t-distribution parameter for slice proposals for r
   ### Hyperparameters (if prior/likelihood parameters not specified)
-  pr.rho.a = 1,
-  pr.rho.b = 1,
-  pr.xi.a = 1,
-  pr.xi.b = 1,
+  pr.rho.omega.a = 1,
+  pr.rho.omega.b = 1,
+  pr.xi.omega.a = 1,
+  pr.xi.omega.b = 1,
+  pr.rho.psi.a = 1,
+  pr.rho.psi.b = 1,
+  pr.xi.psi.a = 1,
+  pr.xi.psi.b = 1,
   Neighbs = NULL, # Neighbor matrix if needed
   str = "uns", # Variance-covariance matrix type
   pr.Omega.V.inv = lapply(dim(X)[-1], diag),
@@ -1338,8 +1342,8 @@ sampler <- function(
         rho <- slice(x.tilde = rho, ll.fun = "cond.rho.log",
                      var.lim = c(-1, 1)*(1 - 10^(-7)), # Avoid boundaries
                      ll.args = list("B" = Covar,
-                                    "pr.a" = pr.rho.a,
-                                    "pr.b" = pr.rho.b,
+                                    "pr.a" = pr.rho.omega.a,
+                                    "pr.b" = pr.rho.omega.b,
                                     "j" = k))
 
         Omega.inv[[k]] <- make.ar.mat(p = p[k], rho = rho, inv = TRUE)
@@ -1355,8 +1359,8 @@ sampler <- function(
           rho <- slice(x.tilde = rho, ll.fun = "cond.xi.log",
                        var.lim = c(lower.xi, upper.xi)*(1 - 10^(-7)), # Avoid boundaries
                        ll.args = list("B" = Covar,
-                                      "pr.a" = pr.xi.a,
-                                      "pr.b" = pr.xi.b,
+                                      "pr.a" = pr.xi.omega.a,
+                                      "pr.b" = pr.xi.omega.b,
                                       "j" = k,
                                       "lower.xi" = lower.xi,
                                       "upper.xi" = upper.xi,
@@ -1419,8 +1423,8 @@ sampler <- function(
           if (is.null(Neighbs)) {
           rho.psi <- slice(x.tilde = rho.psi, ll.fun = "cond.rho.log", var.lim = c(-1, 1)*(1 - 10^(-7)),
                            ll.args = list("B" = Covar,
-                                          "pr.a" = pr.rho.a,
-                                          "pr.b" = pr.rho.b,
+                                          "pr.a" = pr.rho.psi.a,
+                                          "pr.b" = pr.rho.psi.b,
                                           "j" = k))
 
           Psi.inv[[k]] <- make.ar.mat(p = p[k], rho = rho.psi, inv = TRUE)
@@ -1436,8 +1440,8 @@ sampler <- function(
             rho.psi <- slice(x.tilde = rho.psi, ll.fun = "cond.xi.log",
                              var.lim = c(lower.xi, upper.xi)*(1 - 10^(-7)),
                          ll.args = list("B" = Covar,
-                                        "pr.a" = pr.xi.a,
-                                        "pr.b" = pr.xi.b,
+                                        "pr.a" = pr.xi.psi.a,
+                                        "pr.b" = pr.xi.psi.b,
                                         "j" = k,
                                         "lower.xi" = lower.xi,
                                         "upper.xi" = upper.xi,
@@ -1615,8 +1619,14 @@ em.est <- function(max.iter.em = NULL,
                    nu = NULL, # t-distribution parameter for slice proposals for beta (and r if not specified)
                    nu.r = nu, # t-distribution parameter for slice proposals for r
                    ### Hyperparameters (if prior/likelihood parameters not specified)
-                   pr.rho.a = 1,
-                   pr.rho.b = 1,
+                   pr.rho.omega.a = 1,
+                   pr.rho.omega.b = 1,
+                   pr.xi.omega.a = 1,
+                   pr.xi.omega.b = 1,
+                   pr.rho.psi.a = 1,
+                   pr.rho.psi.b = 1,
+                   pr.xi.psi.a = 1,
+                   pr.xi.psi.b = 1,
                    str = "uns", # Variance-covariance matrix type
                    pr.Omega.V.inv = lapply(dim(X)[-1], diag),
                    pr.Psi.V.inv = lapply(dim(X)[-1], diag),
@@ -1712,8 +1722,14 @@ em.est <- function(max.iter.em = NULL,
       r.tilde = r.start,
       r.start = r.start, # Starting value for MCMC for r
       nu.r = nu.r, # t-distribution parameter for slice proposals for r
-      pr.rho.a = pr.rho.a,
-      pr.rho.b = pr.rho.b,
+      pr.rho.omega.a = pr.rho.omega.a,
+      pr.rho.omega.b = pr.rho.omega.b,
+      pr.xi.omega.a = pr.xi.omega.a,
+      pr.xi.omega.b = pr.xi.omega.b,
+      pr.rho.psi.a = pr.rho.psi.a,
+      pr.rho.psi.b = pr.rho.psi.b,
+      pr.xi.psi.a = pr.xi.psi.a,
+      pr.xi.psi.b = pr.xi.psi.b,
       str = str,
       pr.Omega.V.inv = pr.Omega.V.inv,
       pr.Psi.V.inv = pr.Psi.V.inv,
