@@ -1691,14 +1691,11 @@ em.est <- function(max.iter.em = NULL,
       }
     }
     beta.fix <- betas.em[k, ]
-    if (is.null(U.orig)) {
-      beta.fix <- beta.fix[-1]
-    }
     s.s <- sampler(### Data and regression type
       X = X, # Array of penalized covariates, covariance along second dimension is AR-1
       y = y, # Outcome
-      reg = "linear", # Regression model for data
-      U = U.orig, # Matrix of unpenalized covariates
+      reg = reg, # Regression model for data
+      U = U, # Matrix of unpenalized covariates
       ### Prior Choice for beta
       prior = prior,
       c = c,
