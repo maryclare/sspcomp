@@ -994,6 +994,10 @@ sampler <- function(
 
 
         if (slice.beta) {
+          if (!is.infinite(pr.gamma.var) | !pr.gamma.mean == 0) {
+            cat("Non-uniform priors for gamma not supported when slice sampling is used for beta and gamma\n")
+            break;
+          }
 
           if (null.z.tilde & null.V.inv) {
             # Set mean for proposal distribution
