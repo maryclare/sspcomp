@@ -692,7 +692,9 @@ sampler <- function(
   pr.Omega.df = lapply(dim(X)[-1], function(x) {x + 2}),
   pr.Psi.df = lapply(dim(X)[-1], function(x) {x + 2}),
   pr.sig.sq.shape = 3/2,
-  pr.sig.sq.rate = 1/2) {
+  pr.sig.sq.rate = 1/2,
+  sig.sq.gamma = 0,
+  mean.gamma = 0) {
 
   # Just to be safe, "initalize" all variables whose entries may depend on other objects
   max.iter.r = max.iter.r
@@ -926,7 +928,12 @@ sampler <- function(
   W <- t(apply(X.arr.s, 1, "c"))
   UW <- cbind(U, W)
 
-  penC <- c(rep(0, ncol(U)), rep(1, ncol(W)))
+  ifelse (is.null(sig.sq.gamma)) {
+    prec.gamma <- 0
+  } else {
+    prec.gamma <- 1/sig.sq.gamma
+  }
+  penC <- c(rep(prec.gamma, ncol(U)), rep(1, ncol(W)))
 
   if (is.null(fix.beta)) {
     B <- atrans.mc(Z, Omega.half)
@@ -1112,7 +1119,7 @@ sampler <- function(
               UWtUW <- crossprod(UW)
 
             }
-            UWty <- crossprod(UW, y - offset)
+            UWty <- crossprod(UW, y - offset - mean.gamma)
 
             if (reg == "linear") {
 
@@ -1165,7 +1172,7 @@ sampler <- function(
               }
 
 
-              UWty <- crossprod(UW[, block], y - offset)
+              UWty <- crossprod(UW[, block], y - offset - mean.gamma)
 
               if (reg == "linear") {
                 sample.beta[block] <- samp.beta(XtX = UWtUW, Xty = UWty - UWtNUWZ,
