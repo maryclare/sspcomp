@@ -928,6 +928,11 @@ sampler <- function(
   }
   W <- t(apply(X.arr.s, 1, "c"))
   UW <- cbind(U, W)
+  if (ncol(U) == 1) {
+    rs.u <- U
+  } else {
+    rs.u <- rowSums(u)
+  }
 
   if (is.infinite(pr.gamma.var)) {
     pr.gamma.prec <- 0
@@ -1121,10 +1126,11 @@ sampler <- function(
               UWtUW <- crossprod(UW)
 
             }
+
             if (reg == "linear") {
-              UWty <- crossprod(UW, y - offset - pr.gamma.mean)
+              UWty <- crossprod(UW, y - offset - rs.u*pr.gamma.mean)
             } else {
-              UWty <- crossprod(UW, y - offset - ome*pr.gamma.mean)
+              UWty <- crossprod(UW, y - offset - ome*rs.u*pr.gamma.mean)
             }
 
 
@@ -1182,9 +1188,9 @@ sampler <- function(
 
 
               if (reg == "linear") {
-                UWty <- crossprod(UW[, block], y - offset - pr.gamma.mean)
+                UWty <- crossprod(UW[, block], y - offset - rs.u*pr.gamma.mean)
               } else {
-                UWty <- crossprod(UW[, block], y - offset - ome*pr.gamma.mean)
+                UWty <- crossprod(UW[, block], y - offset - ome*rs.u*pr.gamma.mean)
               }
 
 
