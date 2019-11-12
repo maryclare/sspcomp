@@ -693,8 +693,8 @@ sampler <- function(
   pr.Psi.df = lapply(dim(X)[-1], function(x) {x + 2}),
   pr.sig.sq.shape = 3/2,
   pr.sig.sq.rate = 1/2,
-  sig.sq.gamma = 0,
-  mean.gamma = 0) {
+  pr.gamma.mean = 0,
+  pr.gamma.var = Inf) {
 
   # Just to be safe, "initalize" all variables whose entries may depend on other objects
   max.iter.r = max.iter.r
@@ -886,6 +886,7 @@ sampler <- function(
   } else {
     gamma <- gamma.start
   }
+  zgamma <- gamma - pr.gamma.mean
   if (is.null(z.start)) {
     Z <- array(0, dim = p)
   }  else {
@@ -928,12 +929,13 @@ sampler <- function(
   W <- t(apply(X.arr.s, 1, "c"))
   UW <- cbind(U, W)
 
-  ifelse (is.null(sig.sq.gamma)) {
-    prec.gamma <- 0
+  if (is.infinite(pr.gamma.var)) {
+    pr.gamma.prec <- 0
   } else {
-    prec.gamma <- 1/sig.sq.gamma
+    pr.gamma.prec <- 1/pr.gamma.var
   }
-  penC <- c(rep(prec.gamma, ncol(U)), rep(1, ncol(W)))
+
+  penC <- c(rep(pr.gamma.prec, ncol(U)), rep(1, ncol(W)))
 
   if (is.null(fix.beta)) {
     B <- atrans.mc(Z, Omega.half)
@@ -944,7 +946,7 @@ sampler <- function(
   for (i in 1:(burn.in + thin*num.samp)) {
     if (print.iter) {cat("i=", i, "\n")}
 
-    sample.beta <- c(gamma, c(Z))
+    sample.beta <- c(zgamma, c(Z))
 
     if (is.null(fix.beta)) {
 
@@ -1105,7 +1107,7 @@ sampler <- function(
           if (reg == "logit") {
             if (prior != "spn" | (prior == "spn" & sv == "z")) {
               if (print.iter) {cat("Sample logit auxiliary variables\n")}
-              ome <- BayesLogit::rpg(n, offset*2, crossprod(t(UW), c(gamma, c(Z))))
+              ome <- BayesLogit::rpg(n, offset*2, crossprod(t(UW), c(zgamma + pr.gamma.mean, c(Z))))
               diag(omeD) <- ome
             }
           }
@@ -1119,7 +1121,12 @@ sampler <- function(
               UWtUW <- crossprod(UW)
 
             }
-            UWty <- crossprod(UW, y - offset - mean.gamma)
+            if (reg == "linear") {
+              UWty <- crossprod(UW, y - offset - pr.gamma.mean)
+            } else {
+              UWty <- crossprod(UW, y - offset - ome*pr.gamma.mean)
+            }
+
 
             if (reg == "linear") {
 
@@ -1129,10 +1136,12 @@ sampler <- function(
                                                              Xty = UWty[(q + 1):nrow(UWty)],
                                                              Omega.inv = diag(penC[(q + 1):nrow(UWty)],
                                                                               nrow = length(penC[(q + 1):nrow(UWty)]),
-                                                                              ncol = length(penC[(q + 1):nrow(UWty)])), sig.sq = sig.sq)
+                                                                              ncol = length(penC[(q + 1):nrow(UWty)])),
+                                                             sig.sq = sig.sq)
               } else {
                 sample.beta <- samp.beta(XtX = UWtUW, Xty = UWty,
-                                         Omega.inv = diag(penC, nrow = length(penC), ncol = length(penC)), sig.sq = sig.sq)
+                                         Omega.inv = diag(penC, nrow = length(penC), ncol = length(penC)),
+                                         sig.sq = sig.sq)
               }
 
 
@@ -1172,7 +1181,12 @@ sampler <- function(
               }
 
 
-              UWty <- crossprod(UW[, block], y - offset - mean.gamma)
+              if (reg == "linear") {
+                UWty <- crossprod(UW[, block], y - offset - pr.gamma.mean)
+              } else {
+                UWty <- crossprod(UW[, block], y - offset - ome*pr.gamma.mean)
+              }
+
 
               if (reg == "linear") {
                 sample.beta[block] <- samp.beta(XtX = UWtUW, Xty = UWty - UWtNUWZ,
@@ -1187,7 +1201,8 @@ sampler <- function(
 
         }
 
-        gamma <- sample.beta[1:q]
+        zgamma <- sample.beta[1:q]
+        gamma <- zgamma + pr.gamma.mean
         if (prior != "spn" | (prior == "spn" & sv == "z")) {
           # if (prior != "spn") {
           Z <- array(sample.beta[(q + 1):length(sample.beta)], dim = p)
