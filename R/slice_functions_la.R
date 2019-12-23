@@ -215,7 +215,8 @@ cond.rho.log <- function(theta, B, pr.a, pr.b, j) {
 
   c2 <- -sum(diag(crossprod(B.mat, crossprod(O.i, B.mat))))/2
 
-  c3 <- ((2 - 1)/2)*log((1 - theta^2)) # dbeta((theta + 1)/2, pr.a, pr.b, log = TRUE)
+  c3 <- dbeta((theta + 1)/2, pr.a, pr.b, log = TRUE)
+  # c3 <- ((2 - 1)/2)*log((1 - theta^2))
 
   # cat("rho=", rho, "\n")
   # cat("c1=", c1, "\n")
@@ -1662,10 +1663,10 @@ em.est <- function(max.iter.em = NULL,
                    pr.xi.psi.a = 1,
                    pr.xi.psi.b = 1,
                    str = "uns", # Variance-covariance matrix type
-                   pr.Omega.V.inv = lapply(dim(X)[-1], diag),
-                   pr.Psi.V.inv = lapply(dim(X)[-1], diag),
-                   pr.Omega.df = lapply(dim(X)[-1], function(x) {x + 2}),
-                   pr.Psi.df = lapply(dim(X)[-1], function(x) {x + 2}),
+                   pr.Omega.V.inv = lapply(dim(X)[-1], function(x) {diag(1, nrow = x, ncol = x)*x}),
+                   pr.Psi.V.inv = lapply(dim(X)[-1], function(x) {diag(1, nrow = x, ncol = x)*x}),
+                   pr.Omega.df = lapply(dim(X)[-1], function(x) {x + 1 + x}),
+                   pr.Psi.df = lapply(dim(X)[-1], function(x) {x + 1 + x}),
                    pr.sig.sq.shape = 3/2,
                    pr.sig.sq.rate = 1/2) {
 
