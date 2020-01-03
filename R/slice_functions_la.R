@@ -932,7 +932,7 @@ sampler <- function(
   if (ncol(U) == 1) {
     rs.u <- U
   } else {
-    rs.u <- rowSums(u)
+    rs.u <- rowSums(U)
   }
 
   if (is.infinite(pr.gamma.var)) {
