@@ -76,17 +76,17 @@ samp.Omega.inv <- function(Beta, pr.V.inv = diag(1, nrow = ncol(Beta), ncol = nc
     return(tcrossprod(crossprod(V.half, matrix(rnorm(p*df), nrow = p, ncol = df))))
     # return(matrix(rWishart(1, df, solve(V.inv))[, , 1], nrow = p, ncol = p))
   } else if (str == "het") {
-    a <- rep(nrow(Beta), ncol(Beta))/2 + 3/2 # pr.df/2
-    b <- apply(Beta, 2, function(x) {sum(x^2)})/(2) + 1/2 # diag(pr.V.inv)/2
+    a <- rep(nrow(Beta), ncol(Beta))/2 + (pr.df- (p - 1))/2 # pr.df/2
+    b <- apply(Beta, 2, function(x) {sum(x^2)})/(2) + diag(pr.V.inv)/2
     return(diag(rgamma(p, shape = a, rate = b), nrow = p, ncol = p))
   } else if (str == "con") {
 
     # I'm a little worried about the code below if 'Beta' is a matrix wtih more than 1 column,
     # Should check. I think it works!
-    a <- sum(rep(nrow(Beta), ncol(Beta)))/2 + 3/2 # p*pr.df/2
-    b <- sum(apply(Beta, 2, function(x) {sum(x^2)}))/(2) + 1/2 # sum(diag(pr.V.inv))/2
+    a <- sum(rep(nrow(Beta), ncol(Beta)))/2 + (pr.df- (p - 1))/2 # 3/2 # p*pr.df/2
+    b <- sum(apply(Beta, 2, function(x) {sum(x^2)}))/(2) + pr.V.inv[1, 1]/2 # sum(diag(pr.V.inv))/2
 
-    return(rgamma(1, shape = a, rate = b)*diag(p, nrow = p, ncol = p))
+    return(rgamma(1, shape = a, rate = b)*diag(1, nrow = p, ncol = p))
   }
 }
 
