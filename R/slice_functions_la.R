@@ -253,40 +253,91 @@ cond.xi.log <- function(theta, B, pr.a, pr.b, j, W.j, lower.xi, upper.xi, W.ei,
 
 }
 
-cond.tilde.c.log <- function(S, tilde.c, pr.shape, pr.rate) {
-
-  c1 <- (length(c(S))*exp(tilde.c) + 1 + (pr.shape - 1))*tilde.c
-  if (exp(tilde.c) < 10^(-307)) {
-    c2 <- -length(c(S))*log(Inf)
-  } else if (exp(tilde.c) > 171) {
-    c2 <- -length(c(S))*log(Inf)
-  } else {
-    c2 <- -length(c(S))*log(gamma(exp(tilde.c)))
-  }
-  c3 <- (exp(tilde.c) - 1)*sum(log(c(S^2)))
-  c4 <- -(pr.rate + sum(c(S^2)))*exp(tilde.c)
-
-  return(c1 + c2 + c3 + c4)
+pr.delta <- function(x, c) {
+  alpha <- c/2
+  f.d <- f.deltas(deltas = x, c = c)
+  return(f.d^((alpha - 1)/(2*alpha)))
 
 }
 
-sample.c <- function(S, c.old, tune) {
+cond.tilde.c.log <- function(S, tilde.c, pr.shape = 1, pr.rate = 0,
+                             prior = "sng", deltas = NULL) {
+
+
+  if (prior == "sng") {
+    fullc <- sum(dgamma(c(S^2), shape = exp(tilde.c), rate = exp(tilde.c),
+                        log = TRUE))
+  } else if (prior == "spb") {
+    c <- exp(tilde.c)
+    alpha <- c/2
+    f.d <- f.deltas(deltas = deltas, c = c)
+    multip <- (((2*gamma(3/c))/gamma(1/c))^(alpha/(1 - alpha))*f.d)
+    get.nc <- integrate(pr.delta, lower = 0, upper = pi, c = c)
+    fullc <- sum(dgamma(c((S^2)^(alpha/(1 - alpha))),
+                        shape = (1 + alpha)/(2*alpha),
+                        rate = multip,
+                        log = TRUE)) +
+      (alpha - 1)*sum(log(f.d))/(2*alpha) - length(deltas)*log(get.nc$val)
+
+  }
+
+  cov <- tilde.c
+  if (!(pr.rate == 0 & pr.shape == 1)) {
+    pri <- dgamma(exp(tilde.c), shape = pr.shape,
+                  rate = pr.rate, log = TRUE)
+  } else {
+    pri <- 0
+  }
+  # c^c/(Gamma(c)) (s^2)^(c-1) e^-(c*s^2)
+  # cov - c = exp(ct), ct = log(c), dc = exp(ct)dct
+  # exp(ct)^(exp(ct))/(Gamma(exp(ct))) (s^2)^(exp(ct)-1) e^-(exp(ct)*s^2) exp(ct)
+  # exp(ct)^(exp(ct) + 1)/(Gamma(exp(ct))) (s^2)^(exp(ct)-1) e^-(exp(ct)*s^2)
+  # c*log(c) - log((Gamma(c))) + (c - 1)*log(s^2) -(c*s^2)
+
+  # c1 <- (length(c(S))*(exp(tilde.c))*tilde.c + tilde.c + (pr.shape - 1)*tilde.c)
+  # if (exp(tilde.c) < 10^(-307)) {
+  #   c2 <- -length(c(S))*log(Inf)
+  # } else if (exp(tilde.c) > 171) {
+  #   c2 <- -length(c(S))*log(Inf)
+  # } else {
+  #   c2 <- -length(c(S))*log(gamma(exp(tilde.c)))
+  # }
+  # c3 <- (exp(tilde.c) - 1)*sum(log(c(S^2)))
+  # c4 <- -pr.rate*exp(tilde.c) - sum(c(S^2))*exp(tilde.c)
+  #
+  # return(c1 + c2 + c3 + c4)
+  return(fullc + cov + pri)
+}
+
+sample.c <- function(S, c.old, tune, prior, pr.shape, pr.rate, deltas = NULL) {
 
   tilde.c.old <- log(c.old)
   tilde.c.new <- tilde.c.old + tune*rnorm(1)
 
-  llik.old <- cond.tilde.c.log(S = S, tilde.c = tilde.c.old, pr.shape = 0, pr.rate = 0)
-  llik.new <- cond.tilde.c.log(S = S, tilde.c = tilde.c.new, pr.shape = 0, pr.rate = 0)
+  llik.old <- cond.tilde.c.log(S = S, tilde.c = tilde.c.old,
+                               pr.shape = pr.shape, pr.rate = pr.rate,
+                               deltas = deltas, prior = prior)
+
   # if (exp(tilde.c.new) > 100 | exp(tilde.c.new) < 10^(-14)) {
   #   llik.new <- -Inf
   # }
 
   acc <- 0
   u <- runif(1)
+  if (!(prior == "spb" & (exp(tilde.c.new) >= 1.99 | exp(tilde.c.new) <= 0.015))) {
+    # print(exp(tilde.c.new))
+    llik.new <- cond.tilde.c.log(S = S, tilde.c = tilde.c.new,
+                                 pr.shape = pr.shape, pr.rate = pr.rate, deltas = deltas,
+                                 prior = prior)
+
+
   if (u < exp(llik.new - llik.old)) {
     c.old <- exp(tilde.c.new)
     acc <- 1
+    }
   }
+
+
   return(list("c" = c.old, "acc" = acc))
 
 }
@@ -538,9 +589,10 @@ sample.d <- function(theta, delta, V.half, V.r.inv = NULL, nu = NULL) {
     precisions <- 1
   } else {
     if (is.vector(V.half)) {
-      precisions <- rgamma(length(delta), (nu + 1)/2, (nu + (delta/V.half)^2)/2)
+      precisions <- rgamma(length(delta),
+                           nu/2, nu/2)
     } else if (is.matrix(V.half)) {
-      precisions <- rgamma(1, (nu + 1)/2, (nu + crossprod(delta, crossprod(V.r.inv, delta)))/2)
+      precisions <- rgamma(1, nu/2, nu/2)
     }
 
   }
@@ -695,7 +747,8 @@ sampler <- function(
   pr.sig.sq.shape = 3/2,
   pr.sig.sq.rate = 1/2,
   pr.gamma.mean = 0,
-  pr.gamma.var = Inf) {
+  pr.gamma.var = Inf, tune.c = 0.01,
+  shape.c = 1, rate.c = 1) {
 
   # Just to be safe, "initalize" all variables whose entries may depend on other objects
   max.iter.r = max.iter.r
@@ -763,6 +816,10 @@ sampler <- function(
   }
 
   # Set up indicators for null arguments, will be used to decide whether or not to resample
+  null.c <- is.null(c)
+  if (null.c) {
+    c <- 1
+  }
   if (is.null(Omega.half[[1]]) & str == "con" | str == "het") {
     Omega.half[[1]] <- diag(1, nrow = p[1], ncol = p[1])
     if (prior == "spn") {
@@ -866,6 +923,7 @@ sampler <- function(
 
 
   # Results objects
+  acc.c <- res.c <- array(dim = c(num.samp, 1))
   res.rho <- array(dim = c(num.samp, 1))
   res.rho.psi <- array(dim = c(num.samp, 1))
   res.sig.sq <- array(dim = c(num.samp, 1))
@@ -1242,7 +1300,8 @@ sampler <- function(
           alpha <- c/2
           xi <- (2*gamma(3/(2*alpha))*c(S)[ii]^2/gamma(1/(2*alpha)))^(alpha/(1 - alpha))
           deltas[ii] <- slice(x.tilde = deltas[ii], ll.fun = "g.delta",
-                              var.lim = c(0, pi), ll.args = list("c" = c, "xi" = xi))
+                              var.lim = c(0, pi),
+                              ll.args = list("c" = c, "xi" = xi))
         }
       }
     }
@@ -1351,6 +1410,21 @@ sampler <- function(
       eta <- sample$eta
       if (prior %in% c("sng", "spb")) {
         S <- array(abs(r), dim = p)
+        if (null.c) {
+
+          cat("Sample c\n")
+          if (prior == "sng") {
+            c.samp <- sample.c(S = S, c.old = c, tune = tune.c,
+                               pr.shape = shape.c, pr.rate = rate.c,
+                               prior = prior)
+          } else {
+            c.samp <- sample.c(S = S, c.old = c, tune = tune.c,
+                               pr.shape = shape.c, pr.rate = rate.c,
+                               deltas = deltas, prior = prior)
+          }
+          c <- c.samp$c
+          # print(c)
+        }
       } else if (prior  == "spn") {
         S <- array(r, dim = p)
       } else {
@@ -1567,6 +1641,10 @@ sampler <- function(
           res.rho.psi[(i - burn.in)/thin] <- rho.psi
         }
       }
+      if (prior %in% c("sng", "spb") & null.c) {
+        res.c[(i - burn.in)/thin] <- c
+        acc.c[(i - burn.in)/thin] <- c.samp$acc
+      }
 
       if (reg == "linear" & null.sig.sq) {
         res.sig.sq[(i - burn.in)/thin] <- sig.sq
@@ -1599,6 +1677,10 @@ sampler <- function(
   }
   if (reg == "linear" & null.sig.sq) {
     res.list[["sig.sqs"]] <- res.sig.sq
+  }
+  if (prior %in% c("sng", "spb") & null.c) {
+    res.list[["cs"]] <- res.c
+    res.list[["acc.cs"]] <- acc.c
   }
 
   return(res.list)
