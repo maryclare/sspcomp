@@ -265,10 +265,18 @@ cond.tilde.c.log <- function(S, tilde.c, pr.shape = 1, pr.rate = 0,
 
 
   if (prior == "sng") {
-    fullc <- sum(dgamma(c(S^2), shape = exp(tilde.c), rate = exp(tilde.c),
-                        log = TRUE))
-  } else if (prior == "spb") {
     c <- exp(tilde.c)
+    fullc <- sum(dgamma(c(S^2), shape = c, rate = c,
+                        log = TRUE))
+    change.of.variables <- tilde.c
+    if (!(pr.rate == 0 & pr.shape == 1)) {
+      pri <- dgamma(c, shape = pr.shape,
+                    rate = pr.rate, log = TRUE)
+    } else {
+      pri <- 0
+    }
+  } else if (prior == "spb") {
+    c <- 2/(1 + exp(-tilde.c))
     alpha <- c/2
     f.d <- f.deltas(deltas = deltas, c = c)
     multip <- (((2*gamma(3/c))/gamma(1/c))^(alpha/(1 - alpha))*f.d)
@@ -278,35 +286,16 @@ cond.tilde.c.log <- function(S, tilde.c, pr.shape = 1, pr.rate = 0,
                         rate = multip,
                         log = TRUE)) +
       (alpha - 1)*sum(log(f.d))/(2*alpha) - length(deltas)*log(get.nc$val)
+    if (!(pr.rate == 1 & pr.shape == 1)) {
+      pri <- dbeta(c/2, pr.shape, pr.rate, log = TRUE)
+    } else {
+      pri <- 0
+    }
+    change.of.variables <- log(2) - tilde.c - 2*log((1 + exp(-tilde.c)))
 
   }
 
-  cov <- tilde.c
-  if (!(pr.rate == 0 & pr.shape == 1)) {
-    pri <- dgamma(exp(tilde.c), shape = pr.shape,
-                  rate = pr.rate, log = TRUE)
-  } else {
-    pri <- 0
-  }
-  # c^c/(Gamma(c)) (s^2)^(c-1) e^-(c*s^2)
-  # cov - c = exp(ct), ct = log(c), dc = exp(ct)dct
-  # exp(ct)^(exp(ct))/(Gamma(exp(ct))) (s^2)^(exp(ct)-1) e^-(exp(ct)*s^2) exp(ct)
-  # exp(ct)^(exp(ct) + 1)/(Gamma(exp(ct))) (s^2)^(exp(ct)-1) e^-(exp(ct)*s^2)
-  # c*log(c) - log((Gamma(c))) + (c - 1)*log(s^2) -(c*s^2)
-
-  # c1 <- (length(c(S))*(exp(tilde.c))*tilde.c + tilde.c + (pr.shape - 1)*tilde.c)
-  # if (exp(tilde.c) < 10^(-307)) {
-  #   c2 <- -length(c(S))*log(Inf)
-  # } else if (exp(tilde.c) > 171) {
-  #   c2 <- -length(c(S))*log(Inf)
-  # } else {
-  #   c2 <- -length(c(S))*log(gamma(exp(tilde.c)))
-  # }
-  # c3 <- (exp(tilde.c) - 1)*sum(log(c(S^2)))
-  # c4 <- -pr.rate*exp(tilde.c) - sum(c(S^2))*exp(tilde.c)
-  #
-  # return(c1 + c2 + c3 + c4)
-  return(fullc + cov + pri)
+  return(fullc + change.of.variables + pri)
 }
 
 sample.c <- function(S, c.old, tune, prior, pr.shape, pr.rate, deltas = NULL) {
