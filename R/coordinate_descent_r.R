@@ -73,8 +73,11 @@ solve.kappa <- function(kappa, prior) {
 }
 
 #' @export
-coord.desc.r <- function(Omega.inv, beta, c = NULL, eps = 10^(-12), max.iter = 1000, print.iter = TRUE,
-                             start.r = rep(1, length(beta)), max.inner = Inf, deltas = NULL, prior,
+coord.desc.r <- function(Omega.inv, beta,
+                         c = NULL, eps = 10^(-12),
+                         max.iter = 1000, print.iter = TRUE,
+                         start.r = rep(1, length(beta)),
+                         max.inner = Inf, deltas = NULL, prior,
                          Psi.inv = NULL) {
 
   r <- start.r
@@ -85,7 +88,9 @@ coord.desc.r <- function(Omega.inv, beta, c = NULL, eps = 10^(-12), max.iter = 1
 
       r.old <- r
 
-      kappa <- get.kappa(prior = prior, Omega.inv = Omega.inv, beta = beta, r = r, c = c, deltas = deltas,
+      kappa <- get.kappa(prior = prior,
+                         Omega.inv = Omega.inv,
+                         beta = beta, r = r, c = c, deltas = deltas,
                          Psi.inv = Psi.inv, j)
 
       if (prior == "spn" | prior == "sng") {
@@ -132,17 +137,14 @@ coord.desc.r <- function(Omega.inv, beta, c = NULL, eps = 10^(-12), max.iter = 1
 
     if (prior == "spb") {
       objs[i] <- h.log.r.spb(theta = 0, d0 = rep(0, length(r)),
-                             d1 = r, Omega.inv = Omega.inv, beta = beta, c = c, r.tilde = rep(0, length(r)),
-                             V.r.inv = rep(0, length(r)), deltas = deltas)/length(r)
+                             d1 = r, Omega.inv = Omega.inv, beta = beta, c = c,
+                             deltas = deltas)/length(r)
     } else if (prior == "sng") {
       objs[i] <- h.log.r.sng(theta = 0, d0 = rep(0, length(r)),
-                             d1 = r, Omega.inv = Omega.inv, beta = beta, c = c, r.tilde = rep(0, length(r)),
-                             V.r.inv = rep(0, length(r)))/length(r)
+                             d1 = r, Omega.inv = Omega.inv, beta = beta, c = c)/length(r)
     } else if (prior == "spn") {
       objs[i] <- h.log.r.spn(theta = 0, d0 = rep(0, length(r)),
-                             d1 = r, Omega.inv = Omega.inv, beta = beta, Psi.inv = Psi.inv,
-                             r.tilde = rep(0, length(r)),
-                             V.r.inv = rep(0, length(r)))/length(r)
+                             d1 = r, Omega.inv = Omega.inv, beta = beta, Psi.inv = Psi.inv)/length(r)
     }
   if (print.iter) {
     cat("  i = ", i, "\n")
