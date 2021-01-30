@@ -554,7 +554,7 @@ h.log.r.spb <- function(theta, d0, d1,
   p <- unlist(lapply(Omega.inv, function(x) {nrow(x)}))
   if (is.vector(V.r.half)) {
     r = V.r.half*(d0*sin(theta) + d1*cos(theta)) + r.tilde
-  } else if (is.matrix(as.matrix(V.r))) {
+  } else if (is.matrix(as.matrix(V.r.half))) {
     r = V.r.half%*%(d0*sin(theta) + d1*cos(theta)) + r.tilde
   }
   alpha <- c/2
@@ -606,7 +606,7 @@ h.log.r.spn <- function(theta, d0, d1,
   p <- unlist(lapply(Omega.inv, function(x) {nrow(x)}))
   if (is.vector(V.r.half)) {
     r = V.r.half*(d0*sin(theta) + d1*cos(theta)) + r.tilde
-  } else if (is.matrix(as.matrix(V.r))) {
+  } else if (is.matrix(as.matrix(V.r.half))) {
     r = V.r.half%*%(d0*sin(theta) + d1*cos(theta)) + r.tilde
   }
 
@@ -1260,6 +1260,9 @@ sampler <- function(
                                 start.r = start.r,
                                 prior = prior, deltas = deltas,
                                 Psi.inv = Psi.inv)$r
+        if (prior %in% c("sng", "spb")) {
+          r.tilde <- abs(r.tilde) # Sign is not identified
+        }
         r.tilde[r.tilde == 0] <- 10^(-12)
         r.tilde[abs(r.tilde) > 10^(12)] <- sign(r.tilde[abs(r.tilde) > 10^(12)])*10^(12)
       }
