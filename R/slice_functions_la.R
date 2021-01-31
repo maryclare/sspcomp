@@ -1050,9 +1050,11 @@ sampler <- function(
       offset <- rep(0, n)
     }
 
-  eta <- numeric(prod(p))
-  for (i in 1:length(sep.eta)) {
-    eta[sep.eta[[i]]] <- runif(1, 0, 2*pi)
+  if (prior %in% c("sng", "spb")) {
+    eta <- numeric(prod(p))
+    for (i in 1:length(sep.eta)) {
+      eta[sep.eta[[i]]] <- runif(1, 0, 2*pi)
+    }
   }
 
   X.arr.s <- X.arr
@@ -1613,7 +1615,7 @@ sampler <- function(
       if (prior == "logit") {
         res.ome[(i - burn.in)/thin, ] <- ome
       }
-      if (prior %in% c("sng", "spb", "spn")) {
+      if (prior %in% c("sng", "spb")) {
         res.eta[(i - burn.in)/thin, ] <- eta
       }
       if (prior %in% c("sng", "spb")) {
@@ -1641,7 +1643,7 @@ sampler <- function(
     }
   }
 
-  res.list <- list("Bs" = res.B, "gammas" = res.gamma, "etas" = res.eta,
+  res.list <- list("Bs" = res.B, "gammas" = res.gamma,
                    "Ss" = res.S, "Zs" = res.Z, "Rs" = res.R)
   res.list[["omes"]] <- res.ome
 
@@ -1670,6 +1672,7 @@ sampler <- function(
   }
   if (prior %in% c("sng", "spb")) {
     res.list[["deltar"]] <- res.deltar
+    res.list[["etas"]] = res.eta
   }
 
   return(res.list)
