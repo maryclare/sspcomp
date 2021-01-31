@@ -487,6 +487,7 @@ h.log <- function(theta, d0, d1, X, U, y, beta, Omega.half, beta.tilde, V.inv, O
 h.log.r.sng <- function(theta, d0, d1, Omega.inv, beta,
                         c,
                         r.tilde = NULL,
+                        mu.prop = NULL,
                         V.r.half = NULL,
                         V.prop.inv = NULL,
                         nu = NULL) {
@@ -500,12 +501,16 @@ h.log.r.sng <- function(theta, d0, d1, Omega.inv, beta,
   if (is.null(V.prop.inv)) {
     V.prop.inv <- rep(0, length(d0))
   }
+  if (is.null(mu.prop)) {
+    mu.prop = rep(0, length(d0))
+  }
 
   p <- unlist(lapply(Omega.inv, function(x) {nrow(x)}))
+
   if (is.vector(V.r.half)) {
-    r = V.r.half*(d0*sin(theta) + d1*cos(theta)) + r.tilde
+    r = V.r.half*(d0*sin(theta) + d1*cos(theta) + mu.prop) + r.tilde
   } else if (is.matrix(as.matrix(V.r.half))) {
-    r = V.r.half%*%(d0*sin(theta) + d1*cos(theta)) + r.tilde
+    r = V.r.half%*%(d0*sin(theta) + d1*cos(theta) + mu.prop) + r.tilde
   }
   s <- abs(r)
   val <- -sum(c(atrans.mc(array(beta/s, dim = p), Omega.inv))*(beta/s))/2 -
@@ -522,11 +527,11 @@ h.log.r.sng <- function(theta, d0, d1, Omega.inv, beta,
     }
   } else {
     if (is.vector(V.prop.inv)) {
-      val <- val + sum((nu + 1)*log(1 + (d0*sin(theta) + d1*cos(theta))^2*V.prop.inv/nu)/2)
+      val <- val + sum((nu + 1)*log(1 + (d0*sin(theta) + d1*cos(theta))^2*V.prop.inv/((nu - 2)/nu)/nu)/2)
     } else if (is.matrix(as.matrix(V.prop.inv))) {
       val <- val + sum((nu + 1)*log(1 + crossprod((d0*sin(theta) + d1*cos(theta)),
                                                   crossprod(V.prop.inv,
-                                                            (d0*sin(theta) + d1*cos(theta))))/nu)/2)
+                                                            (d0*sin(theta) + d1*cos(theta))))/((nu - 2)/nu)/nu)/2)
     }
   }
 
@@ -537,6 +542,7 @@ h.log.r.sng <- function(theta, d0, d1, Omega.inv, beta,
 h.log.r.spb <- function(theta, d0, d1,
                         Omega.inv, beta, c,
                         r.tilde = NULL,
+                        mu.prop = NULL,
                         V.r.half = NULL,
                         deltas, nu = NULL,
                         V.prop.inv = NULL) {
@@ -550,12 +556,15 @@ h.log.r.spb <- function(theta, d0, d1,
   if (is.null(V.prop.inv)) {
     V.prop.inv <- rep(0, length(d0))
   }
+  if (is.null(mu.prop)) {
+    mu.prop = rep(0, length(d0))
+  }
 
   p <- unlist(lapply(Omega.inv, function(x) {nrow(x)}))
   if (is.vector(V.r.half)) {
-    r = V.r.half*(d0*sin(theta) + d1*cos(theta)) + r.tilde
+    r = V.r.half*(d0*sin(theta) + d1*cos(theta) + mu.prop) + r.tilde
   } else if (is.matrix(as.matrix(V.r.half))) {
-    r = V.r.half%*%(d0*sin(theta) + d1*cos(theta)) + r.tilde
+    r = V.r.half%*%(d0*sin(theta) + d1*cos(theta) + mu.prop) + r.tilde
   }
   alpha <- c/2
   s <- abs(r)
@@ -572,15 +581,16 @@ h.log.r.spb <- function(theta, d0, d1,
     if (is.vector(V.prop.inv)) {
       val <- val + sum((d0*sin(theta) + d1*cos(theta))^2*V.prop.inv/2)
     } else if (is.matrix(as.matrix(V.prop.inv))) {
-      val <- val + crossprod((d0*sin(theta) + d1*cos(theta)), crossprod(V.prop.inv, (d0*sin(theta) + d1*cos(theta))))/2
+      val <- val + crossprod((d0*sin(theta) + d1*cos(theta)),
+                             crossprod(V.prop.inv, (d0*sin(theta) + d1*cos(theta))))/2
     }
   } else {
     if (is.vector(V.prop.inv)) {
-      val <- val + sum((nu + 1)*log(1 + (d0*sin(theta) + d1*cos(theta))^2*V.prop.inv/nu)/2)
+      val <- val + sum((nu + 1)*log(1 + (d0*sin(theta) + d1*cos(theta))^2*V.prop.inv/((nu - 2)/nu)/nu)/2)
     } else if (is.matrix(as.matrix(V.prop.inv))) {
       val <- val + sum((nu + 1)*log(1 + crossprod((d0*sin(theta) + d1*cos(theta)),
                                                   crossprod(V.prop.inv,
-                                                            (d0*sin(theta) + d1*cos(theta))))/nu)/2)
+                                                            (d0*sin(theta) + d1*cos(theta))))/((nu - 2)/nu)/nu)/2)
     }
   }
   return(val)
@@ -590,6 +600,7 @@ h.log.r.spb <- function(theta, d0, d1,
 h.log.r.spn <- function(theta, d0, d1,
                         Omega.inv, beta, Psi.inv,
                         r.tilde, nu = NULL,
+                        mu.prop = NULL,
                         V.r.half = NULL,
                         V.prop.inv = NULL) {
 
@@ -602,12 +613,15 @@ h.log.r.spn <- function(theta, d0, d1,
   if (is.null(V.prop.inv)) {
     V.prop.inv <- rep(0, length(d0))
   }
+  if (is.null(mu.prop)) {
+    mu.prop = rep(0, length(d0))
+  }
 
   p <- unlist(lapply(Omega.inv, function(x) {nrow(x)}))
   if (is.vector(V.r.half)) {
-    r = V.r.half*(d0*sin(theta) + d1*cos(theta)) + r.tilde
+    r = V.r.half*(d0*sin(theta) + d1*cos(theta) + mu.prop) + r.tilde
   } else if (is.matrix(as.matrix(V.r.half))) {
-    r = V.r.half%*%(d0*sin(theta) + d1*cos(theta)) + r.tilde
+    r = V.r.half%*%(d0*sin(theta) + d1*cos(theta) + mu.prop) + r.tilde
   }
 
   s <- r
@@ -620,15 +634,16 @@ h.log.r.spn <- function(theta, d0, d1,
     if (is.vector(V.prop.inv)) {
       val <- val + sum((d0*sin(theta) + d1*cos(theta))^2*V.prop.inv/2)
     } else if (is.matrix(as.matrix(V.prop.inv))) {
-      val <- val + crossprod((d0*sin(theta) + d1*cos(theta)), crossprod(V.prop.inv, (d0*sin(theta) + d1*cos(theta))))/2
+      val <- val + crossprod((d0*sin(theta) + d1*cos(theta)),
+                             crossprod(V.prop.inv, (d0*sin(theta) + d1*cos(theta))))/2
     }
   } else {
     if (is.vector(V.prop.inv)) {
-      val <- val + sum((nu + 1)*log(1 + (d0*sin(theta) + d1*cos(theta))^2*V.prop.inv/nu)/2)
+      val <- val + sum((nu + 1)*log(1 + (d0*sin(theta) + d1*cos(theta))^2*V.prop.inv/((nu - 2)/nu)/nu)/2)
     } else if (is.matrix(as.matrix(V.prop.inv))) {
       val <- val + sum((nu + 1)*log(1 + crossprod((d0*sin(theta) + d1*cos(theta)),
                                                   crossprod(V.prop.inv,
-                                                            (d0*sin(theta) + d1*cos(theta))))/nu)/2)
+                                                            (d0*sin(theta) + d1*cos(theta))))/((nu - 2)/nu)/nu)/2)
     }
   }
   return(val)
@@ -644,15 +659,15 @@ sample.d <- function(theta, delta, V.prop.half, nu = NULL) {
                          nu/2, nu/2)
   }
   if (is.vector(V.prop.half)) {
-    V.half <- V.prop.half/sqrt(precisions)
+    V.half <- ifelse(is.null(nu), 1, sqrt((nu - 2)/nu))*V.prop.half/sqrt(precisions)
   } else if (is.matrix(as.matrix(V.prop.half))) {
-    V.half <- diag(1/sqrt(precisions))%*%V.prop.half
+    V.half <- ifelse(is.null(nu), 1, sqrt((nu - 2)/nu))*diag(1/sqrt(precisions))%*%V.prop.half
   }
 
-  if (is.vector(V.prop.half)) {
-    d <- V.prop.half*rnorm(length(V.prop.half))
+  if (is.vector(V.half)) {
+    d <- V.half*rnorm(length(V.half))
   } else if (is.matrix(as.matrix(V.prop.half))) {
-    d <- crossprod(V.prop.half, rnorm(nrow(as.matrix(V.prop.half))))
+    d <- crossprod(V.half, rnorm(nrow(as.matrix(V.half))))
   }
   d0 <- delta*sin(theta) + d*cos(theta)
   d1 <- delta*cos(theta) - d*sin(theta)
@@ -663,19 +678,23 @@ sample.r.eta <- function(r, Omega.inv, beta,
                          c = NULL, eta, r.tilde,
                          V.r.half,
                          V.r.half.inv,
+                         mu.prop = NULL,
                          V.prop.inv = NULL,
                          V.prop.half = NULL,
                          prior, Psi.inv = NULL,
                          q = NULL, deltas = NULL, nu = NULL) {
-  if (is.vector(V.r.half.inv)) {
-    delta <- (r - r.tilde)*V.r.half.inv
-  } else if (is.matrix(as.matrix(V.r.half.inv))) {
-    delta <- as.numeric(V.r.half.inv%*%(r - r.tilde))
+  if (is.null(mu.prop)) {
+    mu.prop <- rep(0, length(r))
   }
-
   if (is.null(V.prop.half)) {
     V.prop.half <- V.prop.inv <- rep(1, length(r))
   }
+  if (is.vector(V.r.half.inv)) {
+    delta <- (r - r.tilde)*V.r.half.inv - mu.prop
+  } else if (is.matrix(as.matrix(V.r.half.inv))) {
+    delta <- as.numeric(V.r.half.inv%*%(r - r.tilde) - mu.prop)
+  }
+
   d <- sample.d(V.prop.half = V.prop.half,
                 theta = eta, delta = delta, nu = nu)
   if (prior == "sng") {
@@ -685,6 +704,7 @@ sample.r.eta <- function(r, Omega.inv, beta,
                     "beta" = beta,
                     "c" = c,
                     "r.tilde" = r.tilde,
+                    "mu.prop" = mu.prop,
                     "V.r.half" = V.r.half,
                     "V.prop.inv" = V.prop.inv,
                     "nu" = nu)
@@ -696,6 +716,7 @@ sample.r.eta <- function(r, Omega.inv, beta,
                     "beta" = beta,
                     "Psi.inv" = Psi.inv,
                     "r.tilde" = r.tilde,
+                    "mu.prop" = mu.prop,
                     "V.r.half" = V.r.half,
                     "V.prop.inv" = V.prop.inv,
                     "nu" = nu)
@@ -708,19 +729,22 @@ sample.r.eta <- function(r, Omega.inv, beta,
                     "c" = c,
                     "deltas" = deltas,
                     "r.tilde" = r.tilde,
+                    "mu.prop" = mu.prop,
                     "V.r.half" = V.r.half,
                     "V.prop.inv" = V.prop.inv,
                     "nu" = nu)
     ll.fun <- "h.log.r.spb"
   }
+
   eta <- slice(x.tilde = eta, ll.fun = ll.fun,
                var.lim = c(0, 2*pi),
                ll.args = ll.args)
+
   delta <- d$d0*sin(eta) + d$d1*cos(eta)
   if (is.vector(V.r.half)) {
-    r <- delta*V.r.half + r.tilde
+    r <- (delta + mu.prop)*V.r.half + r.tilde
   } else if (is.matrix(as.matrix(V.r.half.inv))) {
-    r <- V.r.half%*%delta + r.tilde
+    r <- V.r.half%*%(delta + mu.prop) + r.tilde
   }
 
   return(list("eta" = eta,
@@ -751,12 +775,10 @@ sampler <- function(
   max.iter.r = 1000, # Maximum number of outer iterations in coordinate descent for r
   eps.r = 10^(-12), # Convergence threshold for coordinate descent r
   diag.app.r = FALSE, # Whether or not a diagonal approximation to the covariance
-  from.prior = FALSE,
   joint.beta = list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))),
   use.previous.r = TRUE,
   max.inner.r = 1000,
   sep.eta = list(1:(prod(dim(X)[-1]))),
-  z.tilde = NULL,
   r.tilde = NULL,
   r.start = NULL, # Starting value for MCMC for r
   z.start = NULL,
@@ -784,6 +806,7 @@ sampler <- function(
   shape.c = 1, rate.c = 1,
   V.r.half = NULL,
   V.r.half.inv = NULL,
+  mu.prop = NULL,
   V.prop.half = NULL,
   V.prop.inv = NULL) {
 
@@ -809,7 +832,8 @@ sampler <- function(
   # Set up indicators for which things are null
   null.V.r.half <- is.null(V.r.half)
   null.V.r.half.inv <- is.null(V.r.half.inv)
-  null.z.tilde <- is.null(z.tilde)
+  null.V.prop.half <- is.null(V.prop.half)
+  null.V.prop.inv <- is.null(V.prop.inv)
   null.r.tilde <- is.null(r.tilde)
 
   if (null.V.r.half & !null.V.r.half.inv) {
@@ -825,6 +849,22 @@ sampler <- function(
       V.r.half.inv <- 1/V.r.half
     } else if (is.matrix(as.matrix(V.r.half))) {
       V.r.half.inv <- solve(V.r.half)
+    }
+  }
+
+  if (null.V.prop.half & !null.V.prop.inv) {
+    if (is.vector(V.prop.inv)) {
+      V.prop.half <- sqrt(1/V.prop.inv)
+    } else if (is.matrix(as.matrix(V.r.half.inv))) {
+      V.prop.half <- sym.sq.root.inv(V.prop.inv)
+    }
+  }
+
+  if (!null.V.prop.half & null.V.prop.inv) {
+    if (is.vector(V.prop.half)) {
+      V.prop.inv <- (1/V.prop.half)^2
+    } else if (is.matrix(as.matrix(V.r.half))) {
+      V.prop.inv <- crossprod(ei.inv(V.prop.half))
     }
   }
 
@@ -1336,11 +1376,11 @@ sampler <- function(
                              r.tilde = r.tilde,
                              V.r.half = V.r.half,
                              V.r.half.inv = V.r.half.inv,
+                             mu.prop = mu.prop,
                              V.prop.half = V.prop.half,
                              V.prop.inv = V.prop.inv,
                              prior = prior, nu = nu.r,
                              deltas = deltas, Psi.inv = Psi.inv)
-
 
       r <- sample$r
       deltar <- sample$delta
@@ -1575,6 +1615,8 @@ sampler <- function(
       }
       if (prior %in% c("sng", "spb", "spn")) {
         res.eta[(i - burn.in)/thin, ] <- eta
+      }
+      if (prior %in% c("sng", "spb")) {
         res.deltar[(i - burn.in)/thin, ] <- deltar
       }
       if (prior == "spb") {
@@ -1600,8 +1642,7 @@ sampler <- function(
   }
 
   res.list <- list("Bs" = res.B, "gammas" = res.gamma, "etas" = res.eta,
-                   "Ss" = res.S, "Zs" = res.Z, "Rs" = res.R,
-                   "deltar" = res.deltar)
+                   "Ss" = res.S, "Zs" = res.Z, "Rs" = res.R)
   res.list[["omes"]] <- res.ome
 
   if (prior == "spb") {
@@ -1626,6 +1667,9 @@ sampler <- function(
   if (prior %in% c("sng", "spb") & null.c) {
     res.list[["cs"]] <- res.c
     res.list[["acc.cs"]] <- acc.c
+  }
+  if (prior %in% c("sng", "spb")) {
+    res.list[["deltar"]] <- res.deltar
   }
 
   return(res.list)
