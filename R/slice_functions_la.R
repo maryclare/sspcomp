@@ -1337,9 +1337,19 @@ sampler <- function(
           V.r.half.inv <- sqrt(V.r.inv)
         } else {
           if (i == 1 | max(null.Omega.half) == 1) {
-            O.i <- do.call("%x%", Omega.inv[length(Omega.inv):1])
+            O.i <- Omega.inv[[length(Omega.inv)]]
+            if ((length(Omega.inv) - 1) >= 1) {
+            for (Om.ind in (length(Omega.inv) - 1):1) {
+              O.i <- O.i%x%Omega.inv[[Om.ind]]
+            }
+            }
             if (prior == "spn") {
-              P.i <- do.call("%x%", Psi.inv[length(Psi.inv):1])
+              P.i <- Psi.inv[[length(Psi.inv)]]
+              if ((length(Psi.inv) - 1) >= 1) {
+                for (Ps.ind in (length(Psi.inv) - 1):1) {
+                  P.i <- P.i%x%Psi.inv[[Ps.ind]]
+                }
+              }
             }
           }
           V.r.inv.1 <- (-1/2)*(O.i)*Matrix::tcrossprod(c(B)/r.tilde^2)*(matrix(1,
