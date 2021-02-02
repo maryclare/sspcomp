@@ -489,50 +489,47 @@ h.log.r.sng <- function(theta, d0, d1, Omega.inv, beta,
                         r.tilde = NULL,
                         mu.prop = NULL,
                         V.r.half = NULL,
-                        V.prop.inv = NULL,
-                        nu = NULL) {
+                        V.prop.half = NULL,
+                        nu = NULL, mode.find = FALSE) {
 
-  if (is.null(r.tilde)) {
+  if (is.null(r.tilde) | mode.find) {
     r.tilde <- rep(0, length(d0))
   }
-  if (is.null(V.r.half)) {
+  if (is.null(V.r.half) | mode.find) {
     V.r.half <- rep(1, length(d0))
   }
-  if (is.null(V.prop.inv)) {
-    V.prop.inv <- rep(0, length(d0))
+  if (is.null(V.prop.half) | mode.find) {
+    V.prop.half <- rep(1, length(d0))
   }
-  if (is.null(mu.prop)) {
+  if (is.null(mu.prop) | mode.find) {
     mu.prop = rep(0, length(d0))
   }
 
   p <- unlist(lapply(Omega.inv, function(x) {nrow(x)}))
 
   if (is.vector(V.r.half)) {
-    r = V.r.half*(d0*sin(theta) + d1*cos(theta) + mu.prop) + r.tilde
+    if (is.vector(V.prop.half)) {
+      r = V.r.half*(V.prop.half*(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
+    } else if (is.matrix(as.matrix(V.prop.half))) {
+      r = V.r.half*(V.prop.half%*%(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
+    }
   } else if (is.matrix(as.matrix(V.r.half))) {
-    r = V.r.half%*%(d0*sin(theta) + d1*cos(theta) + mu.prop) + r.tilde
+    if (is.vector(V.prop.half)) {
+      r = V.r.half%*%(V.prop.half*(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
+    } else if (is.matrix(as.matrix(V.prop.half))) {
+      r = V.r.half%*%(V.prop.half%*%(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
+    }
   }
   s <- abs(r)
   val <- -sum(c(atrans.mc(array(beta/s, dim = p), Omega.inv))*(beta/s))/2 -
     sum(log(s)) + (2*c - 1)*sum(log(s)) - sum(c*s^(2))
 
-  if (is.null(V.prop.inv)) {
-    V.prop.inv <- rep(1, length(r))
-  }
+  if (!mode.find) {
   if (is.null(nu)) {
-    if (is.vector(V.prop.inv)) {
-      val <- val + sum((d0*sin(theta) + d1*cos(theta))^2*V.prop.inv/2)
-    } else if (is.matrix(as.matrix(V.prop.inv))) {
-      val <- val + crossprod((d0*sin(theta) + d1*cos(theta)), crossprod(V.prop.inv, (d0*sin(theta) + d1*cos(theta))))/2
-    }
+    val <- val + sum((d0*sin(theta) + d1*cos(theta))^2/2)
   } else {
-    if (is.vector(V.prop.inv)) {
-      val <- val + sum((nu + 1)*log(1 + (d0*sin(theta) + d1*cos(theta))^2*V.prop.inv/((nu - 2)/nu)/nu)/2)
-    } else if (is.matrix(as.matrix(V.prop.inv))) {
-      val <- val + sum((nu + 1)*log(1 + crossprod((d0*sin(theta) + d1*cos(theta)),
-                                                  crossprod(V.prop.inv,
-                                                            (d0*sin(theta) + d1*cos(theta))))/((nu - 2)/nu)/nu)/2)
-    }
+    val <- val + sum((nu + 1)*log(1 + (d0*sin(theta) + d1*cos(theta))^2/((nu - 2)/nu)/nu)/2)
+  }
   }
 
   return(val)
@@ -545,26 +542,35 @@ h.log.r.spb <- function(theta, d0, d1,
                         mu.prop = NULL,
                         V.r.half = NULL,
                         deltas, nu = NULL,
-                        V.prop.inv = NULL) {
+                        V.prop.half = NULL, mode.find = FALSE) {
 
-  if (is.null(r.tilde)) {
+  if (is.null(r.tilde) | mode.find) {
     r.tilde <- rep(0, length(d0))
   }
-  if (is.null(V.r.half)) {
+  if (is.null(V.r.half) | mode.find) {
     V.r.half <- rep(1, length(d0))
   }
-  if (is.null(V.prop.inv)) {
-    V.prop.inv <- rep(0, length(d0))
+  if (is.null(V.prop.half) | mode.find) {
+    V.prop.half <- rep(1, length(d0))
   }
-  if (is.null(mu.prop)) {
+  if (is.null(mu.prop) | mode.find) {
     mu.prop = rep(0, length(d0))
   }
 
   p <- unlist(lapply(Omega.inv, function(x) {nrow(x)}))
+
   if (is.vector(V.r.half)) {
-    r = V.r.half*(d0*sin(theta) + d1*cos(theta) + mu.prop) + r.tilde
+    if (is.vector(V.prop.half)) {
+      r = V.r.half*(V.prop.half*(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
+    } else if (is.matrix(as.matrix(V.prop.half))) {
+      r = V.r.half*(V.prop.half%*%(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
+    }
   } else if (is.matrix(as.matrix(V.r.half))) {
-    r = V.r.half%*%(d0*sin(theta) + d1*cos(theta) + mu.prop) + r.tilde
+    if (is.vector(V.prop.half)) {
+      r = V.r.half%*%(V.prop.half*(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
+    } else if (is.matrix(as.matrix(V.prop.half))) {
+      r = V.r.half%*%(V.prop.half%*%(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
+    }
   }
   alpha <- c/2
   s <- abs(r)
@@ -574,23 +580,11 @@ h.log.r.spb <- function(theta, d0, d1,
     sum(log(s)) + ((1 + alpha)/(1 - alpha) - 1)*sum(log(s)) -
     sum(multip*s^(2*alpha/(1 - alpha)))
 
-  if (is.null(V.prop.inv)) {
-    V.prop.inv <- rep(1, length(r))
-  }
-  if (is.null(nu)) {
-    if (is.vector(V.prop.inv)) {
-      val <- val + sum((d0*sin(theta) + d1*cos(theta))^2*V.prop.inv/2)
-    } else if (is.matrix(as.matrix(V.prop.inv))) {
-      val <- val + crossprod((d0*sin(theta) + d1*cos(theta)),
-                             crossprod(V.prop.inv, (d0*sin(theta) + d1*cos(theta))))/2
-    }
-  } else {
-    if (is.vector(V.prop.inv)) {
-      val <- val + sum((nu + 1)*log(1 + (d0*sin(theta) + d1*cos(theta))^2*V.prop.inv/((nu - 2)/nu)/nu)/2)
-    } else if (is.matrix(as.matrix(V.prop.inv))) {
-      val <- val + sum((nu + 1)*log(1 + crossprod((d0*sin(theta) + d1*cos(theta)),
-                                                  crossprod(V.prop.inv,
-                                                            (d0*sin(theta) + d1*cos(theta))))/((nu - 2)/nu)/nu)/2)
+  if (!mode.find) {
+    if (is.null(nu)) {
+      val <- val + sum((d0*sin(theta) + d1*cos(theta))^2/2)
+    } else {
+      val <- val + sum((nu + 1)*log(1 + (d0*sin(theta) + d1*cos(theta))^2/((nu - 2)/nu)/nu)/2)
     }
   }
   return(val)
@@ -602,73 +596,64 @@ h.log.r.spn <- function(theta, d0, d1,
                         r.tilde, nu = NULL,
                         mu.prop = NULL,
                         V.r.half = NULL,
-                        V.prop.inv = NULL) {
+                        V.prop.half = NULL, mode.find = FALSE) {
 
-  if (is.null(r.tilde)) {
+  if (is.null(r.tilde) | mode.find) {
     r.tilde <- rep(0, length(d0))
   }
-  if (is.null(V.r.half)) {
+  if (is.null(V.r.half) | mode.find) {
     V.r.half <- rep(1, length(d0))
   }
-  if (is.null(V.prop.inv)) {
-    V.prop.inv <- rep(0, length(d0))
+  if (is.null(V.prop.half) | mode.find) {
+    V.prop.half <- rep(1, length(d0))
   }
-  if (is.null(mu.prop)) {
+  if (is.null(mu.prop) | mode.find) {
     mu.prop = rep(0, length(d0))
   }
 
   p <- unlist(lapply(Omega.inv, function(x) {nrow(x)}))
+
   if (is.vector(V.r.half)) {
-    r = V.r.half*(d0*sin(theta) + d1*cos(theta) + mu.prop) + r.tilde
+    if (is.vector(V.prop.half)) {
+      r = V.r.half*(V.prop.half*(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
+    } else if (is.matrix(as.matrix(V.prop.half))) {
+      r = V.r.half*(V.prop.half%*%(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
+    }
   } else if (is.matrix(as.matrix(V.r.half))) {
-    r = V.r.half%*%(d0*sin(theta) + d1*cos(theta) + mu.prop) + r.tilde
+    if (is.vector(V.prop.half)) {
+      r = V.r.half%*%(V.prop.half*(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
+    } else if (is.matrix(as.matrix(V.prop.half))) {
+      r = V.r.half%*%(V.prop.half%*%(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
+    }
   }
 
   s <- r
   val <- -sum(c(atrans.mc(array(beta/s, dim = p), Omega.inv))*(beta/s))/2 - sum(log(abs(s))) - sum(c(atrans.mc(array(s, dim = p), Psi.inv))*(s))/2
 
-  if (is.null(V.prop.inv)) {
-    V.prop.inv <- rep(1, length(r))
-  }
-  if (is.null(nu)) {
-    if (is.vector(V.prop.inv)) {
-      val <- val + sum((d0*sin(theta) + d1*cos(theta))^2*V.prop.inv/2)
-    } else if (is.matrix(as.matrix(V.prop.inv))) {
-      val <- val + crossprod((d0*sin(theta) + d1*cos(theta)),
-                             crossprod(V.prop.inv, (d0*sin(theta) + d1*cos(theta))))/2
-    }
-  } else {
-    if (is.vector(V.prop.inv)) {
-      val <- val + sum((nu + 1)*log(1 + (d0*sin(theta) + d1*cos(theta))^2*V.prop.inv/((nu - 2)/nu)/nu)/2)
-    } else if (is.matrix(as.matrix(V.prop.inv))) {
-      val <- val + sum((nu + 1)*log(1 + crossprod((d0*sin(theta) + d1*cos(theta)),
-                                                  crossprod(V.prop.inv,
-                                                            (d0*sin(theta) + d1*cos(theta))))/((nu - 2)/nu)/nu)/2)
+  if (!mode.find) {
+    if (is.null(nu)) {
+      val <- val + sum((d0*sin(theta) + d1*cos(theta))^2/2)
+    } else {
+      val <- val + sum((nu + 1)*log(1 + (d0*sin(theta) + d1*cos(theta))^2/((nu - 2)/nu)/nu)/2)
     }
   }
   return(val)
 
 }
 
-sample.d <- function(theta, delta, V.prop.half, nu = NULL) {
+sample.d <- function(theta, delta, nu = NULL) {
 
   if (is.null(nu)) {
     precisions <- 1
+    get.unitvar <- 1
   } else {
     precisions <- rgamma(length(delta),
                          nu/2, nu/2)
-  }
-  if (is.vector(V.prop.half)) {
-    V.half <- ifelse(is.null(nu), 1, sqrt((nu - 2)/nu))*V.prop.half/sqrt(precisions)
-  } else if (is.matrix(as.matrix(V.prop.half))) {
-    V.half <- ifelse(is.null(nu), 1, sqrt((nu - 2)/nu))*diag(1/sqrt(precisions))%*%V.prop.half
+    get.unitvar <- sqrt((nu - 2)/nu)
   }
 
-  if (is.vector(V.half)) {
-    d <- V.half*rnorm(length(V.half))
-  } else if (is.matrix(as.matrix(V.prop.half))) {
-    d <- crossprod(V.half, rnorm(nrow(as.matrix(V.half))))
-  }
+  d <- get.unitvar/sqrt(precisions)*rnorm(length(delta))
+
   d0 <- delta*sin(theta) + d*cos(theta)
   d1 <- delta*cos(theta) - d*sin(theta)
   return(list("d0" = d0, "d1" = d1))
@@ -679,7 +664,6 @@ sample.r.eta <- function(r, Omega.inv, beta,
                          V.r.half,
                          V.r.half.inv,
                          mu.prop = NULL,
-                         V.prop.inv = NULL,
                          V.prop.half = NULL,
                          prior, Psi.inv = NULL,
                          q = NULL, deltas = NULL, nu = NULL) {
@@ -687,7 +671,7 @@ sample.r.eta <- function(r, Omega.inv, beta,
     mu.prop <- rep(0, length(r))
   }
   if (is.null(V.prop.half)) {
-    V.prop.half <- V.prop.inv <- rep(1, length(r))
+    V.prop.half <- rep(1, length(r))
   }
   if (is.vector(V.r.half.inv)) {
     delta <- (r - r.tilde)*V.r.half.inv - mu.prop
@@ -695,8 +679,7 @@ sample.r.eta <- function(r, Omega.inv, beta,
     delta <- as.numeric(V.r.half.inv%*%(r - r.tilde) - mu.prop)
   }
 
-  d <- sample.d(V.prop.half = V.prop.half,
-                theta = eta, delta = delta, nu = nu)
+  d <- sample.d(theta = eta, delta = delta, nu = nu)
   if (prior == "sng") {
     ll.args <- list("d0" = d$d0,
                     "d1" = d$d1,
@@ -706,7 +689,7 @@ sample.r.eta <- function(r, Omega.inv, beta,
                     "r.tilde" = r.tilde,
                     "mu.prop" = mu.prop,
                     "V.r.half" = V.r.half,
-                    "V.prop.inv" = V.prop.inv,
+                    "V.prop.half" = V.prop.half,
                     "nu" = nu)
     ll.fun <- "h.log.r.sng"
   } else if (prior == "spn") {
@@ -718,7 +701,7 @@ sample.r.eta <- function(r, Omega.inv, beta,
                     "r.tilde" = r.tilde,
                     "mu.prop" = mu.prop,
                     "V.r.half" = V.r.half,
-                    "V.prop.inv" = V.prop.inv,
+                    "V.prop.half" = V.prop.half,
                     "nu" = nu)
     ll.fun <- "h.log.r.spn"
   } else if (prior == "spb") {
@@ -731,7 +714,7 @@ sample.r.eta <- function(r, Omega.inv, beta,
                     "r.tilde" = r.tilde,
                     "mu.prop" = mu.prop,
                     "V.r.half" = V.r.half,
-                    "V.prop.inv" = V.prop.inv,
+                    "V.prop.half" = V.prop.half,
                     "nu" = nu)
     ll.fun <- "h.log.r.spb"
   }
@@ -742,9 +725,17 @@ sample.r.eta <- function(r, Omega.inv, beta,
 
   delta <- d$d0*sin(eta) + d$d1*cos(eta)
   if (is.vector(V.r.half)) {
-    r <- (delta + mu.prop)*V.r.half + r.tilde
+    if (is.vector(V.prop.half)) {
+      r <- (V.prop.half*delta + mu.prop)*V.r.half + r.tilde
+    } else if (is.matrix(as.matrix(V.prop.half))) {
+      r <- (V.prop.half%*%delta + mu.prop)*V.r.half + r.tilde
+    }
   } else if (is.matrix(as.matrix(V.r.half.inv))) {
-    r <- V.r.half%*%(delta + mu.prop) + r.tilde
+    if (is.vector(V.prop.half)) {
+      r <- V.r.half%*%(V.prop.half*delta + mu.prop) + r.tilde
+    } else if (is.matrix(as.matrix(V.prop.half))) {
+      r <- V.r.half%*%(V.prop.half%*%delta + mu.prop) + r.tilde
+    }
   }
 
   return(list("eta" = eta,
@@ -807,8 +798,7 @@ sampler <- function(
   V.r.half = NULL,
   V.r.half.inv = NULL,
   mu.prop = NULL,
-  V.prop.half = NULL,
-  V.prop.inv = NULL) {
+  V.prop.half = NULL) {
 
   # Just to be safe, "initalize" all variables whose entries may depend on other objects
   joint.beta = joint.beta
@@ -833,7 +823,6 @@ sampler <- function(
   null.V.r.half <- is.null(V.r.half)
   null.V.r.half.inv <- is.null(V.r.half.inv)
   null.V.prop.half <- is.null(V.prop.half)
-  null.V.prop.inv <- is.null(V.prop.inv)
   null.r.tilde <- is.null(r.tilde)
 
   if (null.V.r.half & !null.V.r.half.inv) {
@@ -849,22 +838,6 @@ sampler <- function(
       V.r.half.inv <- 1/V.r.half
     } else if (is.matrix(as.matrix(V.r.half))) {
       V.r.half.inv <- solve(V.r.half)
-    }
-  }
-
-  if (null.V.prop.half & !null.V.prop.inv) {
-    if (is.vector(V.prop.inv)) {
-      V.prop.half <- sqrt(1/V.prop.inv)
-    } else if (is.matrix(as.matrix(V.r.half.inv))) {
-      V.prop.half <- sym.sq.root.inv(V.prop.inv)
-    }
-  }
-
-  if (!null.V.prop.half & null.V.prop.inv) {
-    if (is.vector(V.prop.half)) {
-      V.prop.inv <- (1/V.prop.half)^2
-    } else if (is.matrix(as.matrix(V.r.half))) {
-      V.prop.inv <- crossprod(ei.inv(V.prop.half))
     }
   }
 
@@ -1390,7 +1363,6 @@ sampler <- function(
                              V.r.half.inv = V.r.half.inv,
                              mu.prop = mu.prop,
                              V.prop.half = V.prop.half,
-                             V.prop.inv = V.prop.inv,
                              prior = prior, nu = nu.r,
                              deltas = deltas, Psi.inv = Psi.inv)
 

@@ -138,13 +138,15 @@ coord.desc.r <- function(Omega.inv, beta,
     if (prior == "spb") {
       objs[i] <- h.log.r.spb(theta = 0, d0 = rep(0, length(r)),
                              d1 = r, Omega.inv = Omega.inv, beta = beta, c = c,
-                             deltas = deltas)/length(r)
+                             deltas = deltas, mode.find = TRUE)/length(r)
     } else if (prior == "sng") {
       objs[i] <- h.log.r.sng(theta = 0, d0 = rep(0, length(r)),
-                             d1 = r, Omega.inv = Omega.inv, beta = beta, c = c)/length(r)
+                             d1 = r, Omega.inv = Omega.inv, beta = beta, c = c,
+                             mode.find = TRUE)/length(r)
     } else if (prior == "spn") {
       objs[i] <- h.log.r.spn(theta = 0, d0 = rep(0, length(r)),
-                             d1 = r, Omega.inv = Omega.inv, beta = beta, Psi.inv = Psi.inv)/length(r)
+                             d1 = r, Omega.inv = Omega.inv, beta = beta,
+                             Psi.inv = Psi.inv, mode.find = TRUE)/length(r)
     }
   if (print.iter) {
     cat("  i = ", i, "\n")
