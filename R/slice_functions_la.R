@@ -150,7 +150,7 @@ f.deltas <- function(deltas, c) {
 g.delta <- function(theta, xi, c) {
 
   f.val <- f.deltas(deltas = theta, c = c)
-  log(f.val) - xi*f.val
+  ((alpha^2 - 1)/(4*alpha^2))*log(f.val) - xi*f.val
 }
 
 # Performs univariate slice sampling for an arbitrary RV, requires
@@ -1351,8 +1351,6 @@ sampler <- function(
       }
 
       if (print.iter) {cat("Sample R\n")}
-
-
 
       sample <- sample.r.eta(r = c(R),
                              Omega.inv = Omega.inv,
