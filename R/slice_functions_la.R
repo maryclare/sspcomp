@@ -149,6 +149,7 @@ f.deltas <- function(deltas, c) {
 
 g.delta <- function(theta, xi, c) {
 
+  alpha <- c/2
   f.val <- f.deltas(deltas = theta, c = c)
   ((alpha^2 - 1)/(4*alpha^2))*log(f.val) - xi*f.val
 }
