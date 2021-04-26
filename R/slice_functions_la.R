@@ -1264,7 +1264,7 @@ sampler <- function(
         if ((i == 1 & once) | !once) {
 
         if (print.iter) {cat("Set Sampling Values for R\n")}
-        if (use.previous.r | i == 1) {
+        if (!use.previous.r | i == 1) {
           start.r <- rep(1, prod(p))
         } else {
           start.r <- r.tilde
