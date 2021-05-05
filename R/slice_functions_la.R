@@ -529,7 +529,7 @@ h.log.r.sng <- function(theta, d0, d1, Omega.inv, beta,
   if (is.null(nu)) {
     val <- val + sum((d0*sin(theta) + d1*cos(theta))^2/2)
   } else {
-    val <- val + sum((nu + 1)*log(1 + (d0*sin(theta) + d1*cos(theta))^2/((nu - 2)/nu)/nu)/2)
+    val <- val + sum((nu + 1)*log(1 + (d0*sin(theta) + d1*cos(theta))^2/((nu - 2)))/2)
   }
   }
 
@@ -585,7 +585,7 @@ h.log.r.spb <- function(theta, d0, d1,
     if (is.null(nu)) {
       val <- val + sum((d0*sin(theta) + d1*cos(theta))^2/2)
     } else {
-      val <- val + sum((nu + 1)*log(1 + (d0*sin(theta) + d1*cos(theta))^2/((nu - 2)/nu)/nu)/2)
+      val <- val + sum((nu + 1)*log(1 + (d0*sin(theta) + d1*cos(theta))^2/((nu - 2)))/2)
     }
   }
   return(val)
@@ -635,7 +635,7 @@ h.log.r.spn <- function(theta, d0, d1,
     if (is.null(nu)) {
       val <- val + sum((d0*sin(theta) + d1*cos(theta))^2/2)
     } else {
-      val <- val + sum((nu + 1)*log(1 + (d0*sin(theta) + d1*cos(theta))^2/((nu - 2)/nu)/nu)/2)
+      val <- val + sum((nu + 1)*log(1 + (d0*sin(theta) + d1*cos(theta))^2/((nu - 2)))/2)
     }
   }
   return(val)
