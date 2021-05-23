@@ -1062,174 +1062,6 @@ sampler <- function(
   for (i in 1:(burn.in + thin*num.samp)) {
     if (print.iter) {cat("i=", i, "\n")}
 
-    sample.beta <- c(zgamma, c(Z))
-
-    if (is.null(fix.beta)) {
-
-      if (prior == "spn") {
-        samp.vars <- c("z", "s")
-      } else {
-        samp.vars <- c("z")
-      }
-      for (sv in samp.vars) {
-        if (print.iter & sv == "z") {cat("Sample Z\n")}
-        if (print.iter & sv == "s") {cat("Sample S\n")}
-
-
-      if (sv == "z") {
-
-            X.arr.s <- array(c(crossprod(apply(X.arr, 1, "c"),
-                                         diag(c(S),
-                                              nrow = prod(p),
-                                              ncol = prod(p)))),
-                             dim = c(n, p))
-            for (l in 1:length(p)) {
-              X.arr.s <- amprod.mc(X.arr.s, Omega.half[[l]], l + 1)
-            }
-            W <- t(apply(X.arr.s, 1, "c"))
-            UW <- cbind(U, W)
-
-          } else {
-
-            X.arr.s <- X.arr
-            X.arr.s <- array(c(crossprod(apply(X.arr, 1, "c"),
-                                         diag(c(atrans.mc(Z, Omega.half)),
-                                              nrow = prod(p), ncol = prod(p)))), dim = c(n, p))
-            for (l in 1:length(p)) {
-              X.arr.s <- amprod.mc(X.arr.s, Psi.half[[l]], l + 1)
-            }
-            W <- t(apply(X.arr.s, 1, "c"))
-            UW <- cbind(U, W)
-
-          }
-
-
-
-          if (reg == "logit") {
-            if (prior != "spn" | (prior == "spn" & sv == "z")) {
-              if (print.iter) {cat("Sample logit auxiliary variables\n")}
-              ome <- BayesLogit::rpg(n, offset*2, crossprod(t(UW), c(zgamma + pr.gamma.mean, c(Z))))
-              diag(omeD) <- ome
-            }
-          }
-          if (length(joint.beta) == 1) {
-            if (reg == "logit") {
-
-              UWtUW <- Matrix::crossprod(UW, Matrix::crossprod(omeD, UW))
-              UWty <- crossprod(UW, y - offset - ome*rs.u*pr.gamma.mean)
-
-            } else if ((i == 1 &
-                        reg == "linear" &
-                        max(null.Omega.half) == 0 & prior == "sno" & !null.Sig.sq) |
-                       !(reg == "linear") |
-                       !(max(null.Omega.half) == 0) |
-                       !(prior == "sno") |
-                       null.Sig.sq) {
-              UW.Sig.i.rt <- array(c(amprod.mc(array(c(UW),
-                                            dim = c(dim(Y),
-                                                    dim(UW)[-1])), Sig.i.rt, 2)),
-                                   dim = dim(UW))
-              y.Sig.i.rt <- as.vector(array(y - offset - rs.u*pr.gamma.mean, dim = dim(Y))%*%Sig.i.rt)
-              UWtUW <- crossprod(UW.Sig.i.rt)
-              UWty <- Matrix::crossprod(UW.Sig.i.rt, y.Sig.i.rt)
-            }
-
-
-            if (reg == "linear") {
-
-
-              if (min(U) == 0 & max(U) == 0) {
-                sample.beta[(q + 1):nrow(UWty)] <- samp.beta(XtX = UWtUW[(q + 1):nrow(UWtUW), (q + 1):ncol(UWtUW)],
-                                                             Xty = UWty[(q + 1):nrow(UWty)],
-                                                             Omega.inv = diag(penC[(q + 1):nrow(UWty)],
-                                                                              nrow = length(penC[(q + 1):nrow(UWty)]),
-                                                                              ncol = length(penC[(q + 1):nrow(UWty)])),
-                                                             sig.sq = 1)
-              } else {
-                sample.beta <- samp.beta(XtX = UWtUW, Xty = UWty,
-                                         Omega.inv = diag(penC, nrow = length(penC),
-                                                          ncol = length(penC)),
-                                         sig.sq = 1)
-              }
-
-
-            } else {
-              if (min(U) == 0 & max(U) == 0) {
-
-                sample.beta[(q + 1):nrow(UWty)] <- samp.beta(XtX = UWtUW[(q + 1):nrow(UWtUW), (q + 1):ncol(UWtUW)],
-                                                             Xty = UWty[(q + 1):nrow(UWty)],
-                                                             Omega.inv = diag(penC[(q + 1):nrow(UWty)],
-                                                                              nrow = length(penC[(q + 1):nrow(UWty)]),
-                                                                              ncol = length(penC[(q + 1):nrow(UWty)])), sig.sq = 1)
-              } else {
-                sample.beta <- samp.beta(XtX = UWtUW, Xty = UWty,
-                                         Omega.inv = diag(penC, nrow = length(penC), ncol = length(penC)), sig.sq = 1)
-              }
-
-
-            }
-
-          } else {
-
-            for (block in joint.beta) {
-
-              not.block <- (1:ncol(UW.Sig.i.rt))[!1:ncol(UW.Sig.i.rt) %in% block]
-              if (reg == "logit") {
-
-                UWtUW <- Matrix::crossprod(UW[, block], Matrix::crossprod(omeD, UW[, block]))
-
-                UWtNUWZ <- Matrix::crossprod(Matrix::t(Matrix::crossprod(UW[, block],
-                                                                         Matrix::crossprod(omeD, UW[, not.block]))), sample.beta[ not.block])
-
-              } else if ((i == 1 & reg == "linear" & max(null.Omega.half) == 0 & prior == "sno" & length(joint.beta) == 1 & !null.Sig.sq) |
-                         !(reg == "linear") | !(max(null.Omega.half) == 0) | !(prior == "sno") | length(joint.beta) > 1 | null.Sig.sq) {
-                UWtUW <- crossprod(UW.Sig.i.rt[, block])
-                UWtNUWZ <- crossprod(UW.Sig.i.rt[, block], crossprod(t(UW.Sig.i.rt[, not.block]), sample.beta[not.block]))
-
-              }
-
-
-              if (reg == "linear") {
-                UWty <- crossprod(UW.Sig.i.rt[, block], y.Sig.i.rt)
-              } else {
-                UWty <- crossprod(UW[, block], y - offset - ome*rs.u*pr.gamma.mean)
-              }
-
-
-              if (reg == "linear") {
-                sample.beta[block] <- samp.beta(XtX = UWtUW, Xty = UWty - UWtNUWZ,
-                                                Omega.inv = diag(penC[block], nrow = length(penC[block]), ncol = length(penC[block])), sig.sq = 1)
-              } else {
-                sample.beta[block] <- samp.beta(XtX = UWtUW, Xty = UWty - UWtNUWZ,
-                                                Omega.inv = diag(penC[block], nrow = length(penC[block]), ncol = length(penC[block])), sig.sq = 1)
-              }
-            }
-
-          }
-
-
-
-        zgamma <- sample.beta[1:q]
-        gamma <- zgamma + pr.gamma.mean
-        if (prior != "spn" | (prior == "spn" & sv == "z")) {
-          # if (prior != "spn") {
-          Z <- array(sample.beta[(q + 1):length(sample.beta)], dim = p)
-          # } else {
-          #   Z <- array(1, prod(p))
-          # }
-        } else {
-          S <- atrans.mc(array(sample.beta[(q + 1):length(sample.beta)], p),
-                         Psi.half)
-          # S <- array(1, prod(p))
-        }
-
-        S <- array(S, p)
-        Z <- array(Z, p)
-        B <- S*atrans.mc(Z, Omega.half)
-
-      }
-    }
-
     if (i == 1) {
       deltas <- runif(prod(p), 0, pi)
     } else {
@@ -1398,6 +1230,174 @@ sampler <- function(
         B <- S*atrans.mc(Z, Omega.half)
       }
 
+    }
+
+    sample.beta <- c(zgamma, c(Z))
+
+    if (is.null(fix.beta)) {
+
+      if (prior == "spn") {
+        samp.vars <- c("z", "s")
+      } else {
+        samp.vars <- c("z")
+      }
+      for (sv in samp.vars) {
+        if (print.iter & sv == "z") {cat("Sample Z\n")}
+        if (print.iter & sv == "s") {cat("Sample S\n")}
+
+
+        if (sv == "z") {
+
+          X.arr.s <- array(c(crossprod(apply(X.arr, 1, "c"),
+                                       diag(c(S),
+                                            nrow = prod(p),
+                                            ncol = prod(p)))),
+                           dim = c(n, p))
+          for (l in 1:length(p)) {
+            X.arr.s <- amprod.mc(X.arr.s, Omega.half[[l]], l + 1)
+          }
+          W <- t(apply(X.arr.s, 1, "c"))
+          UW <- cbind(U, W)
+
+        } else {
+
+          X.arr.s <- X.arr
+          X.arr.s <- array(c(crossprod(apply(X.arr, 1, "c"),
+                                       diag(c(atrans.mc(Z, Omega.half)),
+                                            nrow = prod(p), ncol = prod(p)))), dim = c(n, p))
+          for (l in 1:length(p)) {
+            X.arr.s <- amprod.mc(X.arr.s, Psi.half[[l]], l + 1)
+          }
+          W <- t(apply(X.arr.s, 1, "c"))
+          UW <- cbind(U, W)
+
+        }
+
+
+
+        if (reg == "logit") {
+          if (prior != "spn" | (prior == "spn" & sv == "z")) {
+            if (print.iter) {cat("Sample logit auxiliary variables\n")}
+            ome <- BayesLogit::rpg(n, offset*2, crossprod(t(UW), c(zgamma + pr.gamma.mean, c(Z))))
+            diag(omeD) <- ome
+          }
+        }
+        if (length(joint.beta) == 1) {
+          if (reg == "logit") {
+
+            UWtUW <- Matrix::crossprod(UW, Matrix::crossprod(omeD, UW))
+            UWty <- crossprod(UW, y - offset - ome*rs.u*pr.gamma.mean)
+
+          } else if ((i == 1 &
+                      reg == "linear" &
+                      max(null.Omega.half) == 0 & prior == "sno" & !null.Sig.sq) |
+                     !(reg == "linear") |
+                     !(max(null.Omega.half) == 0) |
+                     !(prior == "sno") |
+                     null.Sig.sq) {
+            UW.Sig.i.rt <- array(c(amprod.mc(array(c(UW),
+                                                   dim = c(dim(Y),
+                                                           dim(UW)[-1])), Sig.i.rt, 2)),
+                                 dim = dim(UW))
+            y.Sig.i.rt <- as.vector(array(y - offset - rs.u*pr.gamma.mean, dim = dim(Y))%*%Sig.i.rt)
+            UWtUW <- crossprod(UW.Sig.i.rt)
+            UWty <- Matrix::crossprod(UW.Sig.i.rt, y.Sig.i.rt)
+          }
+
+
+          if (reg == "linear") {
+
+
+            if (min(U) == 0 & max(U) == 0) {
+              sample.beta[(q + 1):nrow(UWty)] <- samp.beta(XtX = UWtUW[(q + 1):nrow(UWtUW), (q + 1):ncol(UWtUW)],
+                                                           Xty = UWty[(q + 1):nrow(UWty)],
+                                                           Omega.inv = diag(penC[(q + 1):nrow(UWty)],
+                                                                            nrow = length(penC[(q + 1):nrow(UWty)]),
+                                                                            ncol = length(penC[(q + 1):nrow(UWty)])),
+                                                           sig.sq = 1)
+            } else {
+              sample.beta <- samp.beta(XtX = UWtUW, Xty = UWty,
+                                       Omega.inv = diag(penC, nrow = length(penC),
+                                                        ncol = length(penC)),
+                                       sig.sq = 1)
+            }
+
+
+          } else {
+            if (min(U) == 0 & max(U) == 0) {
+
+              sample.beta[(q + 1):nrow(UWty)] <- samp.beta(XtX = UWtUW[(q + 1):nrow(UWtUW), (q + 1):ncol(UWtUW)],
+                                                           Xty = UWty[(q + 1):nrow(UWty)],
+                                                           Omega.inv = diag(penC[(q + 1):nrow(UWty)],
+                                                                            nrow = length(penC[(q + 1):nrow(UWty)]),
+                                                                            ncol = length(penC[(q + 1):nrow(UWty)])), sig.sq = 1)
+            } else {
+              sample.beta <- samp.beta(XtX = UWtUW, Xty = UWty,
+                                       Omega.inv = diag(penC, nrow = length(penC), ncol = length(penC)), sig.sq = 1)
+            }
+
+
+          }
+
+        } else {
+
+          for (block in joint.beta) {
+
+            not.block <- (1:ncol(UW.Sig.i.rt))[!1:ncol(UW.Sig.i.rt) %in% block]
+            if (reg == "logit") {
+
+              UWtUW <- Matrix::crossprod(UW[, block], Matrix::crossprod(omeD, UW[, block]))
+
+              UWtNUWZ <- Matrix::crossprod(Matrix::t(Matrix::crossprod(UW[, block],
+                                                                       Matrix::crossprod(omeD, UW[, not.block]))), sample.beta[ not.block])
+
+            } else if ((i == 1 & reg == "linear" & max(null.Omega.half) == 0 & prior == "sno" & length(joint.beta) == 1 & !null.Sig.sq) |
+                       !(reg == "linear") | !(max(null.Omega.half) == 0) | !(prior == "sno") | length(joint.beta) > 1 | null.Sig.sq) {
+              UWtUW <- crossprod(UW.Sig.i.rt[, block])
+              UWtNUWZ <- crossprod(UW.Sig.i.rt[, block], crossprod(t(UW.Sig.i.rt[, not.block]), sample.beta[not.block]))
+
+            }
+
+
+            if (reg == "linear") {
+              UWty <- crossprod(UW.Sig.i.rt[, block], y.Sig.i.rt)
+            } else {
+              UWty <- crossprod(UW[, block], y - offset - ome*rs.u*pr.gamma.mean)
+            }
+
+
+            if (reg == "linear") {
+              sample.beta[block] <- samp.beta(XtX = UWtUW, Xty = UWty - UWtNUWZ,
+                                              Omega.inv = diag(penC[block], nrow = length(penC[block]), ncol = length(penC[block])), sig.sq = 1)
+            } else {
+              sample.beta[block] <- samp.beta(XtX = UWtUW, Xty = UWty - UWtNUWZ,
+                                              Omega.inv = diag(penC[block], nrow = length(penC[block]), ncol = length(penC[block])), sig.sq = 1)
+            }
+          }
+
+        }
+
+
+
+        zgamma <- sample.beta[1:q]
+        gamma <- zgamma + pr.gamma.mean
+        if (prior != "spn" | (prior == "spn" & sv == "z")) {
+          # if (prior != "spn") {
+          Z <- array(sample.beta[(q + 1):length(sample.beta)], dim = p)
+          # } else {
+          #   Z <- array(1, prod(p))
+          # }
+        } else {
+          S <- atrans.mc(array(sample.beta[(q + 1):length(sample.beta)], p),
+                         Psi.half)
+          # S <- array(1, prod(p))
+        }
+
+        S <- array(S, p)
+        Z <- array(Z, p)
+        B <- S*atrans.mc(Z, Omega.half)
+
+      }
     }
 
     for (k in which(null.Omega.half)) {
