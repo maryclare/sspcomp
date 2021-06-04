@@ -78,13 +78,17 @@ coord.desc.r <- function(Omega.inv, beta,
                          max.iter = 1000, print.iter = TRUE,
                          start.r = rep(1, length(beta)),
                          max.inner = Inf, deltas = NULL, prior,
-                         Psi.inv = NULL) {
+                         Psi.inv = NULL, r.order = 1:length(beta)) {
+
+  r.order <- r.order
 
   r <- start.r
   p <- length(r)
-  objs <- rep(NA, max.iter)
+  mdr <- objs <- rep(NA, max.iter)
   for (i in 1:max.iter) {
-    for (j in 1:length(r)) {
+    r.iter <- r
+    if (i > 1) {
+    for (j in r.order) {
 
       r.old <- r
 
@@ -134,6 +138,7 @@ coord.desc.r <- function(Omega.inv, beta,
         }
       }
     }
+    }
 
     if (prior == "spb") {
       objs[i] <- h.log.r.spb(theta = 0, d0 = rep(0, length(r)),
@@ -153,10 +158,11 @@ coord.desc.r <- function(Omega.inv, beta,
     cat("obj = ", objs[i], "\n")
   }
   if (i > 1) {
+    mdr[i] <- max(abs(r - r.iter))
     if (sum(r == 0) == 0 & abs(objs[i] - objs[i - 1]) < eps) {
       break
     }
   }
   }
-  return(list("r" = r, "objs" = objs[1:i]))
+  return(list("r" = r, "objs" = objs[1:i], "mdr" = mdr[1:i]))
 }

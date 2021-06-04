@@ -1,71 +1,4 @@
 #' @export
-get.beta.blocks <- function(X, U = NULL, min.block.size = 25, no.eig = TRUE) {
-
-  p <- dim(X)[-1]
-  if (is.null(U)) {
-    q <- 0
-  } else {
-    q <- dim(U)[-1]
-  }
-
-  if (min.block.size > prod(p) + q) {
-    min.block.size <- prod(p) + q - 1
-  }
-
-  if (no.eig) {
-    ends <- seq(1, prod(p) + q, by = min.block.size)
-    joint.beta <- vector("list", length = length(ends) - 1)
-    ends[-1] <- ends[-1] + (prod(p) + q - max(ends[-1]))
-
-    for (i in 2:(length(ends))) {
-      if (i == 2) {
-        joint.beta[[i - 1]] <- ends[i - 1]:(ends[i])
-      } else {
-        joint.beta[[i - 1]] <- (ends[i - 1] + 1):(ends[i])
-      }
-    }
-  } else {
-    # Fix this later
-    nc <- prod(p) + q
-    if (!is.null(U)) {
-      C <- crossprod(cbind(t(apply(X, 1, "c")), U))
-    } else {
-      C <- crossprod(cbind(t(apply(X, 1, "c"))))
-    }
-    C.ei <- eigen(C)
-    # Get number of covariates per block
-    num.per.block <- round(nc*C.ei$values/sum(C.ei$values), 0)
-    # Decide how many groups to make
-    max.ei <- max(which((num.per.block) > 0))
-    num.block <- max.ei + (nc - sum(num.per.block[1:max.ei]))
-    new.num.per.block <- numeric(num.block)
-    new.num.per.block[1:max.ei] <- num.per.block[1:max.ei]
-    new.num.per.block[(max.ei + 1):length(new.num.per.block)] <- 1
-    num.per.block <- new.num.per.block
-    joint.beta <- vector("list", length = num.block)
-
-    remain <- 1:(nc)
-    for (i in 1:max.ei) {
-
-      order.vec <- order(abs(C.ei$vectors[i, ]), decreasing = FALSE)
-      order.vec <- order.vec[order.vec %in% remain]
-
-      block.beta <- order.vec[1:num.per.block[i]]
-
-      remain <- remain[!remain %in% block.beta]
-
-      joint.beta[[i]] <- block.beta
-
-    }
-    for (i in 1:length(remain)) {
-      joint.beta[[max.ei + i]] <- remain[i]
-    }
-
-  }
-  return(joint.beta)
-}
-
-#' @export
 samp.Omega.inv <- function(Beta, pr.V.inv = diag(1, nrow = ncol(Beta), ncol = ncol(Beta)),
                            pr.df = ncol(Beta) + 2, str = "uns") {
   p <- ncol(Beta)
@@ -332,57 +265,6 @@ sample.c <- function(S, c.old, tune, prior, pr.shape, pr.rate, deltas = NULL) {
 
 }
 
-
-V.factor <- function(X, U, max.it = 1) { # This DOES NOT WORK WELL when we use more iterations
-  n <- dim(X)[1]
-  p <- dim(X)[-1]
-  q <- ncol(U)
-  V <- V.inv <- V.half <- lapply(c(q, p, 1), diag)
-  V.inv[[1]] <- crossprod(U)
-  V.half[[1]] <- sym.sq.root.inv(V.inv[[1]])
-  V[[1]] <- crossprod(V.half[[1]])
-
-  if (n < prod(p)) {
-    svd <- svd(mat(X, 1))
-    R <- svd$v
-    d <- c(svd$d)
-  } else {
-    svd <- svd(crossprod(mat(X, 1)))
-    R <- svd$v
-    d <- sqrt(c(svd$d))
-  }
-
-  X.tilde <- tcrossprod(diag(sqrt(1 + d^2), nrow = length(d), ncol = length(d)), R)
-  V.half[[length(V.half)]] <- sqrt(rep(1, prod(p)) - apply(R, 1, function(x) {sum(x^2*(d^2/(1 + d^2)))}))
-  V.inv[[length(V.inv)]] <- sqrt(diag(crossprod(X.tilde)))
-  X.tilde.arr <- array(c(tcrossprod(X.tilde, diag(V.half[[length(V.half)]], nrow = length(V.half[[length(V.half)]]), ncol = length(V.half[[length(V.half)]])))),
-                       c(nrow(X.tilde), p))
-
-  for (m in 1:max.it) {
-    for (k in 1:length(p)) {
-
-      arr.1 <- X.tilde.arr
-      arr.2 <- X.tilde.arr
-      for (l in (1:length(p))[-k]) {
-        arr.1 <- amprod.mc(arr.1, rep(1, p[l])%*%V[[l + 1]], l + 1)
-        arr.2 <- amprod.mc(arr.2, t(rep(1, p[l])), l + 1)
-      }
-      V.mat <- crossprod(mat(arr.1, 1), mat(arr.2, 1))
-      if (sum(V.mat != t(V.mat)) > 0) {
-        V.mat <- (V.mat + t(V.mat))/2
-      }
-      V.mat.val <- eigen(V.mat)$values
-      if (min(V.mat.val) < 0) {
-        V.mat <- V.mat + (abs(min(V.mat.val)) + 10^(-8))*diag(1, nrow = p[k], ncol = p[k])
-      }
-      V[[k + 1]] <- cov2cor(solve(V.mat))
-      V.inv[[k + 1]] <- solve(V[[k + 1]])
-      V.half[[k + 1]] <- sym.sq.root(V[[k + 1]])
-    }
-  }
-  return(list("V.half" = V.half, "V.inv" = V.inv))
-}
-
 # Get Kronecker indices
 get.kron.row <- function(i, Omega) {
   p <- unlist(lapply(Omega, function(x) {nrow(x)}))
@@ -512,13 +394,13 @@ h.log.r.sng <- function(theta, d0, d1, Omega.inv, beta,
     if (is.vector(V.prop.half)) {
       r = V.r.half*(V.prop.half*(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
     } else if (is.matrix(as.matrix(V.prop.half))) {
-      r = V.r.half*(V.prop.half%*%(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
+      r = V.r.half*(Matrix::crossprod(V.prop.half, (d0*sin(theta) + d1*cos(theta))) + mu.prop) + r.tilde
     }
   } else if (is.matrix(as.matrix(V.r.half))) {
     if (is.vector(V.prop.half)) {
-      r = V.r.half%*%(V.prop.half*(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
+      r = Matrix::crossprod(V.r.half, (V.prop.half*(d0*sin(theta) + d1*cos(theta)) + mu.prop)) + r.tilde
     } else if (is.matrix(as.matrix(V.prop.half))) {
-      r = V.r.half%*%(V.prop.half%*%(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
+      r = Matrix::crossprod(V.r.half, (Matrix::crossprod(V.prop.half, (d0*sin(theta) + d1*cos(theta))) + mu.prop)) + r.tilde
     }
   }
   s <- abs(r)
@@ -564,13 +446,13 @@ h.log.r.spb <- function(theta, d0, d1,
     if (is.vector(V.prop.half)) {
       r = V.r.half*(V.prop.half*(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
     } else if (is.matrix(as.matrix(V.prop.half))) {
-      r = V.r.half*(V.prop.half%*%(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
+      r = V.r.half*(Matrix::crossprod(V.prop.half, (d0*sin(theta) + d1*cos(theta))) + mu.prop) + r.tilde
     }
   } else if (is.matrix(as.matrix(V.r.half))) {
     if (is.vector(V.prop.half)) {
-      r = V.r.half%*%(V.prop.half*(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
+      r = Matrix::crossprod(V.r.half, (V.prop.half*(d0*sin(theta) + d1*cos(theta)) + mu.prop)) + r.tilde
     } else if (is.matrix(as.matrix(V.prop.half))) {
-      r = V.r.half%*%(V.prop.half%*%(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
+      r = Matrix::crossprod(V.r.half, (Matrix::crossprod(V.prop.half, (d0*sin(theta) + d1*cos(theta))) + mu.prop)) + r.tilde
     }
   }
   alpha <- c/2
@@ -618,13 +500,13 @@ h.log.r.spn <- function(theta, d0, d1,
     if (is.vector(V.prop.half)) {
       r = V.r.half*(V.prop.half*(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
     } else if (is.matrix(as.matrix(V.prop.half))) {
-      r = V.r.half*(V.prop.half%*%(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
+      r = V.r.half*(Matrix::crossprod(V.prop.half, (d0*sin(theta) + d1*cos(theta))) + mu.prop) + r.tilde
     }
   } else if (is.matrix(as.matrix(V.r.half))) {
     if (is.vector(V.prop.half)) {
-      r = V.r.half%*%(V.prop.half*(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
+      r = Matrix::crossprod(V.r.half, (V.prop.half*(d0*sin(theta) + d1*cos(theta)) + mu.prop)) + r.tilde
     } else if (is.matrix(as.matrix(V.prop.half))) {
-      r = V.r.half%*%(V.prop.half%*%(d0*sin(theta) + d1*cos(theta)) + mu.prop) + r.tilde
+      r = Matrix::crossprod(V.r.half, (Matrix::crossprod(V.prop.half, (d0*sin(theta) + d1*cos(theta))) + mu.prop)) + r.tilde
     }
   }
 
@@ -677,7 +559,7 @@ sample.r.eta <- function(r, Omega.inv, beta,
   if (is.vector(V.r.half.inv)) {
     delta <- (r - r.tilde)*V.r.half.inv - mu.prop
   } else if (is.matrix(as.matrix(V.r.half.inv))) {
-    delta <- as.numeric(V.r.half.inv%*%(r - r.tilde) - mu.prop)
+    delta <- as.numeric(Matrix::crossprod(V.r.half.inv, (r - r.tilde)) - mu.prop)
   }
 
   d <- sample.d(theta = eta, delta = delta, nu = nu)
@@ -729,13 +611,13 @@ sample.r.eta <- function(r, Omega.inv, beta,
     if (is.vector(V.prop.half)) {
       r <- (V.prop.half*delta + mu.prop)*V.r.half + r.tilde
     } else if (is.matrix(as.matrix(V.prop.half))) {
-      r <- (V.prop.half%*%delta + mu.prop)*V.r.half + r.tilde
+      r <- (Matrix::crossprod(V.prop.half, delta) + mu.prop)*V.r.half + r.tilde
     }
   } else if (is.matrix(as.matrix(V.r.half.inv))) {
     if (is.vector(V.prop.half)) {
-      r <- V.r.half%*%(V.prop.half*delta + mu.prop) + r.tilde
+      r <- Matrix::crossprod(V.r.half, (V.prop.half*delta + mu.prop)) + r.tilde
     } else if (is.matrix(as.matrix(V.prop.half))) {
-      r <- V.r.half%*%(V.prop.half%*%delta + mu.prop) + r.tilde
+      r <- Matrix::crossprod(V.r.half, (Matrix::crossprod(V.prop.half, delta) + mu.prop)) + r.tilde
     }
   }
 
@@ -1025,9 +907,14 @@ sampler <- function(
     }
 
   if (prior %in% c("sng", "spb")) {
-    eta <- numeric(prod(p))
+
+    if (length(sep.eta) == prod(p)) {
+      eta <- unlist(lapply(sep.eta, function(x) {2*pi*runif(1)}))
+    } else {
+      eta <- numeric(prod(p))
     for (i in 1:length(sep.eta)) {
       eta[sep.eta[[i]]] <- runif(1, 0, 2*pi)
+    }
     }
   }
 
@@ -1067,13 +954,22 @@ sampler <- function(
     } else {
       if (prior == "spb") {
         if (print.iter) {cat("Sample Delta\n")}
-        for (ii in 1:length(deltas)) {
-          alpha <- c/2
+        alpha <- c/2
+        deltas.new <- unlist(lapply(1:length(deltas), function(ii) {
           xi <- (2*gamma(3/(2*alpha))*c(S)[ii]^2/gamma(1/(2*alpha)))^(alpha/(1 - alpha))
-          deltas[ii] <- slice(x.tilde = deltas[ii], ll.fun = "g.delta",
+          slice(x.tilde = deltas[ii], ll.fun = "g.delta",
                               var.lim = c(0, pi),
                               ll.args = list("c" = c, "xi" = xi))
-        }
+        }))
+        deltas <- deltas.new
+
+        # for (ii in 1:length(deltas)) {
+        #   alpha <- c/2
+        #   xi <- (2*gamma(3/(2*alpha))*c(S)[ii]^2/gamma(1/(2*alpha)))^(alpha/(1 - alpha))
+        #   deltas[ii] <- slice(x.tilde = deltas[ii], ll.fun = "g.delta",
+        #                       var.lim = c(0, pi),
+        #                       ll.args = list("c" = c, "xi" = xi))
+        # }
       }
     }
 
@@ -1096,18 +992,41 @@ sampler <- function(
         if ((i == 1 & once) | !once) {
 
         if (print.iter) {cat("Set Sampling Values for R\n")}
+
         if (!use.previous.r | i == 1) {
           start.r <- rep(1, prod(p))
+          r.order <- sample(1:length(start.r), size = length(start.r), replace = FALSE)
         } else {
-          start.r <- r.tilde
+          cd1 <- coord.desc.r(Omega.inv = Omega.inv,
+                              beta = c(B), c = c,
+                              eps = eps.r, max.iter = 1,
+                              print.iter = FALSE, max.inner = max.inner.r,
+                              start.r = rep(1, prod(p)),
+                              prior = prior, deltas = deltas,
+                              Psi.inv = Psi.inv)
+          cdtilde <- coord.desc.r(Omega.inv = Omega.inv,
+                                  beta = c(B), c = c,
+                                  eps = eps.r, max.iter = 1,
+                                  print.iter = FALSE, max.inner = max.inner.r,
+                                  start.r = r.tilde,
+                                  prior = prior, deltas = deltas,
+                                  Psi.inv = Psi.inv)
+          if (cd1$obj > cdtilde$obj) {
+            start.r <- rep(1, prod(p))
+            r.order <- sample(1:length(start.r), size = length(start.r), replace = FALSE)
+            cat("Starting at 1\n")
+          } else {
+            start.r <- r.tilde
+          }
         }
-        r.tilde <- coord.desc.r(Omega.inv = Omega.inv,
-                                beta = c(B), c = c,
-                                eps = eps.r, max.iter = max.iter.r,
-                                print.iter = FALSE, max.inner = max.inner.r,
-                                start.r = start.r,
-                                prior = prior, deltas = deltas,
-                                Psi.inv = Psi.inv)$r
+        cdr <- coord.desc.r(Omega.inv = Omega.inv,
+                              beta = c(B), c = c,
+                              eps = eps.r, max.iter = max.iter.r,
+                              print.iter = FALSE, max.inner = max.inner.r,
+                              start.r = start.r,
+                              prior = prior, deltas = deltas,
+                              Psi.inv = Psi.inv, r.order = r.order)
+        r.tilde <- cdr$r
         if (prior %in% c("sng", "spb")) {
           r.tilde <- abs(r.tilde) # Sign is not identified
         }
@@ -1167,13 +1086,22 @@ sampler <- function(
           } else {
 
             V.r.inv.2 <- diag(0, nrow = length(r.tilde), ncol = length(r.tilde))
-            for (jj in 1:length(r.tilde)) {
-              kappa <- get.kappa(prior = prior, Omega.inv = Omega.inv, beta = c(B),
-                                 r = r.tilde, c = c, deltas = deltas,
-                                 Psi.inv = Psi.inv, jj)
-              kappa[1:2] <- 0
-              V.r.inv.2[jj, jj] <- kappa.ll.dd(s.j = r.tilde[jj], kappa = kappa)
-            }
+
+            diag(V.r.inv.2) <- unlist(lapply(1:length(r.tilde), function(jj) {
+                kappa <- get.kappa(prior = prior, Omega.inv = Omega.inv, beta = c(B),
+                                   r = r.tilde, c = c, deltas = deltas,
+                                   Psi.inv = Psi.inv, jj)
+                kappa[1:2] <- 0
+                kappa.ll.dd(s.j = r.tilde[jj], kappa = kappa)
+            }))
+
+            # for (jj in 1:length(r.tilde)) {
+            #   kappa <- get.kappa(prior = prior, Omega.inv = Omega.inv, beta = c(B),
+            #                      r = r.tilde, c = c, deltas = deltas,
+            #                      Psi.inv = Psi.inv, jj)
+            #   kappa[1:2] <- 0
+            #   V.r.inv.2[jj, jj] <- kappa.ll.dd(s.j = r.tilde[jj], kappa = kappa)
+            # }
           }
           V.r.inv <- -1*(V.r.inv.1 + V.r.inv.2)
           V.r.half <- sym.sq.root.inv(V.r.inv)
@@ -1198,6 +1126,8 @@ sampler <- function(
                              deltas = deltas, Psi.inv = Psi.inv)
 
       r <- sample$r
+      # plot(abs(r), main = paste(i, length(cdr$objs), cdr$mdr[length(cdr$mdr)], sep = ", "), ylim = range(abs(r), r.tilde))
+      # points(r.tilde, col = "blue")
       deltar <- sample$delta
       eta <- sample$eta
       # print(r)
