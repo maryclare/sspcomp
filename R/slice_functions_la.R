@@ -1014,7 +1014,7 @@ sampler <- function(
           if (cd1$obj > cdtilde$obj) {
             start.r <- rep(1, prod(p))
             r.order <- sample(1:length(start.r), size = length(start.r), replace = FALSE)
-            cat("Starting at 1\n")
+            if (print.iter) {cat("Starting at 1\n")}
           } else {
             start.r <- r.tilde
           }
