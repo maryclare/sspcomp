@@ -625,7 +625,16 @@ sample.r.eta <- function(r, Omega.inv, beta,
               "r" = r,
               "delta" = delta))
 }
-
+#' Sampler corresponding to Griffin and Hoff "Structured Shrinkage Priors"
+#'
+#' @name sampler
+#' @description Add description here
+#'
+#' @param X Array of penalized covariates prod(dim(Y)) x p, covariance along second dimension is AR-1
+#' @param Y Matrix of response values
+#' @param reg Regression model for data, accepts "linear", "logit" or "nb", defaults to linear
+#' @param U Matrix of unpenalized covariates
+#'
 #' @export
 sampler <- function(
   ### Data and regression type
@@ -1523,7 +1532,7 @@ sampler <- function(
       res.gamma[(i - burn.in)/thin, ] <- gamma
       res.S[(i - burn.in)/thin, ] <- c(S)
       res.R[(i - burn.in)/thin, ] <- c(R)
-      if (prior == "logit") {
+      if (reg == "logit") {
         res.ome[(i - burn.in)/thin, ] <- ome
       }
       if (prior %in% c("sng", "spb")) {
