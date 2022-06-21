@@ -2,10 +2,10 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 objVec <- function(beta, Xbeta, y, OmegaInv) {
-    .Call(`_sspcomp_objVec`, beta, Xbeta, y, OmegaInv)
+    .Call('_sspcomp_objVec', PACKAGE = 'sspcomp', beta, Xbeta, y, OmegaInv)
 }
 
 objMat <- function(beta, Xbeta, y, OmegaInv) {
-    .Call(`_sspcomp_objMat`, beta, Xbeta, y, OmegaInv)
+    .Call('_sspcomp_objMat', PACKAGE = 'sspcomp', beta, Xbeta, y, OmegaInv)
 }
 
