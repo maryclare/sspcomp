@@ -628,45 +628,96 @@ sample.r.eta <- function(r, Omega.inv, beta,
 #' Sampler corresponding to Griffin and Hoff "Structured Shrinkage Priors"
 #'
 #' @name sampler
-#' @description Add description here
+#' @description Function that implements sampler corresponding to the models described in Griffin and Hoff "Structured Shrinkage Priors"
 #'
-#' @param X Array of penalized covariates prod(dim(Y)) x p, covariance along second dimension is AR-1
-#' @param Y Matrix of response values
+#' @param Y Matrix of response values.
+#' @param X Array of penalized covariates, with first dimension equal to prod(dim(Y)).
 #' @param reg Regression model for data, accepts "linear", "logit" or "nb", defaults to linear
-#' @param U Matrix of unpenalized covariates
+#' @param U Matrix of unpenalized covariates with prod(dim(Y)) rows.
+#' @param prior Prior for penalized regression coefficients, accepts "sno", "spn", "sng", or "spb"
+#' @param c Scalar shape parameter for SNG or SPB priors (equivalent to q for SPB priors)
+#' @param Omega.half A length(dim(X)) - 1 list of symmetric square roots of covariance matrices for the normal vectors z used in defining priors for penalized regression coefficients. Null values indicate that a prior distribution is assumed for the corresponding covariance matrix. If the first element is NULL, a constrained covariance matrix (AR-1 by default or ICAR if explicitly specified) is assumed. Defaults to a list of NULL values.
+#' @param Psi.half A length(dim(X)) - 1 list of symmetric square roots of covariance matrices for scales under the SPN prior for penalized regression coefficients. When the SPN prior is used, null values indicate that a prior distribution is assumed for the corresponding covariance matrix. If the first element is NULL, a constrained covariance matrix (AR-1 by default or ICAR if explicitly specified) is assumed. Defaults to a list of NULL values.
+#' @param Sig.sq A dim(Y)[2] x dim(Y)[2] covariance matrix describing covariance along second dimension of response matrix Y.  Null values indicate that a prior distribution is assumed for the corresponding covariance matrix. Defaults to NULL.
+#' @param num.samp Number of samples from the posterior to be returned. Defaults to 100.
+#' @param burn.in Number of samples from the posterior to be discarded as burn-in and not returned. Defaults to 0.
+#' @param thin Number of samples from the posterior to thin by before returning samples. Defaults to 1.
+#' @param print.iter TRUE/FALSE indicating whether or not a running count of the number of samples drawn from the posterior should be printed. Defaults to TRUE.
+#' @param eps.r Scalar global tolerance for coordinate descent for inverse scale posterior mode, defaults to 10^(-12)
+#' @param max.iter.r Integer number of maximum outer iterations for coordinate descent for inverse scale posterior mode. Defaults to 1,000.
+#' @param max.inner.r Integer number of maximum inner iterations for coordinate descent for inverse scale posterior mode. Defaults to 1,000.
+#' @param use.previous.r TRUE/FALSE indicating whether or not successive iterations should use the previous posterior mode of the inverse scales as a starting value for the posterior mode of the inverse scales on the following iteration. Defaults to TRUE.
+#' @param diag.app.r TRUE/FALSE indicating whether or not a diagonal approximation to the Hessian of the posterior distribution of the inverse scales should be used. Defaults to FALSE.
+#' @param r.tilde If non-null, a prod(dim(X)[-1]) vector corresponding to starting values for the posterior mode of the inverse scales. Defaults to NULL, in which case a vector of 1's or the previous posterior mode is used, depending on what is provided for "use.previous.r".
+#' @param sep.eta List providing indices of scales to be sampled together in a single ESS step, defaults to a list with one element for scales index.
+#' @param nu.r If non-null, a scalar corresponding to the degrees of freedom of the t-distribution used for to generate proposals for inverse scales. If NULL, a normal distribution is used for proposals. Defaults to NULL.
+#' @param r.start If non-null, a prod(dim(X)[-1]) vector corresponding to starting values of the inverse scales. Defaults to NULL, in which case a vector of 1's is used.
+#' @param V.r.half If non-null, a prod(dim(X)[-1]) x prod(dim(X)[-1]) matrix corresponding to the linear transformation applied to the inverse scales after subtracting off the posterior mode before performing elliptical slice sampling. If NULL, a linear transformation based on the Hessian of the posterior distribution of the inverse scales is used.
+#' @param V.r.half.inv If non-null, a prod(dim(X)[-1]) x prod(dim(X)[-1]) matrix corresponding to the inverse of V.r.half. If NULL, defined to be the inverse of V.r.half. Defaults to NULL.
+#' @param mu.prop If non-null, a prod(dim(X)[-1]) vector corresponding to the proposal means for the linearly transformed inverse scales. If NULL, a p vector of zeros is used. Defaults to NULL.
+#' @param V.prop.half If non-null, a prod(dim(X)[-1]) vector (or prod(dim(X)[-1]) x prod(dim(X)[-1]) matrix) corresponding to the proposal variances (or covariance matrix) used for the inverse scales. If NULL, a p vector of 1's is used. Defaults to NULL.
+#' @param z.start If non-null, a p vector corresponding to starting values of the penalized coefficients. Defaults to NULL, in which case a vector of 0's is used.
+#' @param gamma.start If non-null, a dim(U)[2] vector corresponding to starting values of the unpenalized coefficients. Defaults to NULL, in which case a vector of 0's is used.
+#' @param joint.beta List providing indices of the all coefficients to be sampled together in a single Gibbs step, defaults to a list with one element containing all indices.
+#' @param fix.beta If non-null, a dim(U)[2] + prod(dim(X)[-1]) vector corresponding to fixed values of the regression coefficients. Value of NULL indicates a prior distribution is assumed for all regression coefficients. Defaults to NULL.
+#' @param pr.rho.omega.a A scalar corresponding to the first shape parameter of the beta prior assumed for the autoregressive parameter for the first covariance matrix for the normal vectors z used in defining priors for penalized regression coefficients (when the first covariance matrix is not provided). Defaults to (2*dim(X)[2] + 1 - dim(X)[2] + 1)/2.
+#' @param pr.rho.omega.b A scalar corresponding to the second shape parameter of the beta prior assumed for the autoregressive parameter for the first covariance matrix for the normal vectors z used in defining priors for penalized regression coefficients (when the first covariance matrix is not provided). Defaults to (2*dim(X)[2] + 1 - dim(X)[2] + 1)/2.
+#' @param pr.rho.psi.a A scalar corresponding to the first shape parameter of the beta prior assumed for the autoregressive parameter for the first covariance matrix for the scales under the SPN prior (when the first covariance matrix is not provided). Defaults to (2*dim(X)[2] + 1 - dim(X)[2] + 1)/2.
+#' @param pr.rho.psi.b A scalar corresponding to the second shape parameter of the beta prior assumed for the autoregressive parameter for the first covariance matrix for the scales under the SPN prior (when the first covariance matrix is not provided). Defaults to (2*dim(X)[2] + 1 - dim(X)[2] + 1)/2.
+#' @param pr.xi.omega.a A scalar corresponding to the first shape parameter of the beta prior assumed for the ICAR parameter for the first covariance matrix for the normal vectors z used in defining priors for penalized regression coefficients (when the first covariance matrix is not provided). Defaults to 1.
+#' @param pr.xi.omega.b A scalar corresponding to the second shape parameter of the beta prior assumed for the ICAR parameter for the first covariance matrix for the normal vectors z used in defining priors for penalized regression coefficients (when the first covariance matrix is not provided). Defaults to 1.
+#' @param pr.xi.psi.a A scalar corresponding to the first shape parameter of the beta prior assumed for the ICAR parameter for the first covariance matrix for the scales under the SPN prior (when the first covariance matrix is not provided). Defaults to 1.
+#' @param pr.xi.psi.b A scalar corresponding to the second shape parameter of the beta prior assumed for the ICAR parameter for the first covariance matrix for the scales under the SPN prior (when the first covariance matrix is not provided). Defaults to 1.
+#' @param Neighbs If non-null, a symmetric dim(X)[2] x dim(X)[2] neighbor matrix. Defaults to NULL, in which case an AR-1 model for the first covariance matrix is assumed.
+#' @param str Character vector that indicates the structure of remaining unspecified variance-covariance matrices (excluding the first). Can take on values "con" (variance-covariance matrices are proportional to an identity matrix), "het" (variance-covariance matrices are diagonal), or "uns" (variance-covariance matrices are unstructured). Defaults to "uns."
+#' @param pr.Omega.V.inv A length(dim(X)) - 1  list of covariance matrices corresponding to scale matrices for the inverse Wishart priors for the covariance matrices of the normal vectors z. The first is disregarded. Defaults to lapply(dim(X)[-1], function(x) {diag(1, nrow = x, ncol = x)*x}).
+#' @param pr.Psi.V.inv A length(dim(X)) - 1 list of covariance matrices corresponding to scale matrices for the inverse Wishart priors for the covariance matrices of the scales under the SPN prior. The first is disregarded. Defaults to lapply(dim(X)[-1], function(x) {diag(1, nrow = x, ncol = x)*x}).
+#' @param pr.Sig.sq.inv A dim(Y)[2] x dim(Y)[2] covariance matrix corresponding to the scale matrix for the inverse Wishart priors for the covariance matrix of the response along the second dimension. Defaults to dim(Y)[2]*diag(1, nrow = dim(Y)[2], ncol = dim(Y)[2]).
+#' @param pr.Omega.df A length(dim(X)) - 1 list of scalars corresponding to degrees of freedom for the inverse Wishart priors for the covariance matrices of the normal vectors z. The first is disregarded. Defaults to lapply(dim(X)[-1], function(x) {2*x + 1}).
+#' @param pr.Psi.df A length(dim(X)) - 1  list of scalars corresponding to degrees of freedom for the inverse Wishart priors for the covariance matrices of the scales under the SPN prior. The first is disregarded. efaults to lapply(dim(X)[-1], function(x) {2*x + 1}).
+#' @param pr.Sig.sq.df A scalar corresponding to the degrees of freedom for the inverse Wishart prior for the covariance matrix of the response along the second dimension. Defaults to 2*dim(Y)[2] + 1.
+#' @param pr.gamma.mean Scalar prior mean or dim(U)[2] vector of prior means the unpenalized regression coefficient(s). Defaults to 0.
+#' @param pr.gamma.var Scalar prior variance or dim(U)[2] vector of prior variances for unpenalized regression coefficient(s). Defaults to Inf, which corresponds to a uniform prior on each unpenalized regression coefficient.
+#' @param tune.c Standard deviation of random walk proposals for log(c) or logit(q/2). Defaults to 0.01.
+#' @param shape.c Gamma shape parameter for the gamma prior distribution assumed for c under the SNG prior or first beta parameter for the beta prior distribution assumed for q/2 under the SPB prior. Defaults to 1.
+#' @param rate.c Gamma rate parameter for the gamma prior distribution assumed for c under the SNG prior or second beta parameter for the beta prior distribution assumed for q/2 under the SPB prior. Defaults to 1.
 #'
 #' @export
 sampler <- function(
   ### Data and regression type
-  X, # Array of penalized covariates, covariance along second dimension is AR-1
-  Y, # Outcome
-  reg = "linear", # Regression model for data
-  U = NULL, # Matrix of unpenalized covariates
+  X,
+  Y,
+  reg = "linear",
+  U = NULL,
   ### Prior Choice for beta
   prior = "sno",
   c = 1,
   ### Prior Parameters and Likelihood Parameters
-  Omega.half = vector("list", length = length(dim(X)[-1])), # A dim(X) - 1 list of symmetric square roots of covariance matrices
-  Psi.half = vector("list", length = length(dim(X)[-1])),   # A dim(X) - 1 list of symmetric square roots of covariance matrices
+  Omega.half = vector("list", length = length(dim(X)[-1])),
+  Psi.half = vector("list", length = length(dim(X)[-1])),
   Sig.sq = NULL,
   ### MCMC Parameters
-  fix.beta = NULL, # Null if beta should not be fixed, a q + p vector otherwise
-  num.samp = 100, # Number of samples to return
-  burn.in = 0, # Number of burn-in samples to discard
-  thin = 1, # Number of samples to thin by
-  print.iter = TRUE, # Indicator for whether or not iteration counter should be printed
-  max.iter.r = 1000, # Maximum number of outer iterations in coordinate descent for r
-  eps.r = 10^(-12), # Convergence threshold for coordinate descent r
-  diag.app.r = FALSE, # Whether or not a diagonal approximation to the covariance
-  joint.beta = list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))),
-  use.previous.r = TRUE,
+  num.samp = 100,
+  burn.in = 0,
+  thin = 1,
+  print.iter = TRUE,
+  sep.eta = as.list(1:(prod(dim(X)[-1]))),
+  eps.r = 10^(-12),
+  max.iter.r = 1000,
   max.inner.r = 1000,
-  sep.eta = list(1:(prod(dim(X)[-1]))),
+  use.previous.r = TRUE,
+  diag.app.r = FALSE,
+  joint.beta = list(1:(prod(dim(X)[-1]) + ifelse(is.null(U), 1, ncol(U)))),
+  fix.beta = NULL,
   r.tilde = NULL,
-  r.start = NULL, # Starting value for MCMC for r
+  r.start = NULL,
   z.start = NULL,
   gamma.start = NULL,
-  nu.r = NULL, # t-distribution parameter for slice proposals for r
+  nu.r = NULL,
+  V.r.half = NULL,
+  V.r.half.inv = NULL,
+  mu.prop = NULL,
+  V.prop.half = NULL,
   ### Hyperparameters (if prior/likelihood parameters not specified)
   pr.rho.omega.a = (2*dim(X)[2] + 1 - dim(X)[2] + 1)/2,
   pr.rho.omega.b = (2*dim(X)[2] + 1 - dim(X)[2] + 1)/2,
@@ -676,8 +727,8 @@ sampler <- function(
   pr.rho.psi.b = (2*dim(X)[2] + 1 - dim(X)[2] + 1)/2,
   pr.xi.psi.a = 1,
   pr.xi.psi.b = 1,
-  Neighbs = NULL, # Neighbor matrix if needed
-  str = "uns", # Variance-covariance matrix type
+  Neighbs = NULL,
+  str = "uns",
   pr.Omega.V.inv = lapply(dim(X)[-1], function(x) {diag(1, nrow = x, ncol = x)*x}),
   pr.Psi.V.inv = lapply(dim(X)[-1], function(x) {diag(1, nrow = x, ncol = x)*x}),
   pr.Sig.sq.inv = dim(Y)[2]*diag(1, nrow = dim(Y)[2], ncol = dim(Y)[2]),
@@ -685,12 +736,10 @@ sampler <- function(
   pr.Psi.df = lapply(dim(X)[-1], function(x) {2*x + 1}),
   pr.Sig.sq.df = 2*dim(Y)[2] + 1,
   pr.gamma.mean = 0,
-  pr.gamma.var = Inf, tune.c = 0.01,
-  shape.c = 1, rate.c = 1,
-  V.r.half = NULL,
-  V.r.half.inv = NULL,
-  mu.prop = NULL,
-  V.prop.half = NULL) {
+  pr.gamma.var = Inf,
+  tune.c = 0.01,
+  shape.c = 1,
+  rate.c = 1) {
 
   # Just to be safe, "initalize" all variables whose entries may depend on other objects
   joint.beta = joint.beta
@@ -802,6 +851,7 @@ sampler <- function(
       }
     }
   }
+  deltas <- runif(prod(p), 0, pi)
 
   if (prior == "spn") {
     record.Sigma <- max(null.Psi.half) == 1 | max(null.Omega.half) == 1
@@ -866,8 +916,6 @@ sampler <- function(
     Psi.half.inv <- lapply(Psi.half, function(x) {ei.inv(x)})
   }
 
-
-
   # Results objects
   acc.c <- res.c <- array(dim = c(num.samp, 1))
   res.rho <- array(dim = c(num.samp, 1))
@@ -895,7 +943,7 @@ sampler <- function(
   if (is.null(z.start)) {
     Z <- array(0, dim = p)
   }  else {
-    Z <- array(z.start[(q + 1):length(z.start)], dim = p)
+    Z <- array(z.start, dim = p)
   }
   if (is.null(r.start)) {
     R <- array(1, dim = p)
@@ -958,29 +1006,194 @@ sampler <- function(
   for (i in 1:(burn.in + thin*num.samp)) {
     if (print.iter) {cat("i=", i, "\n")}
 
-    if (i == 1) {
-      deltas <- runif(prod(p), 0, pi)
-    } else {
-      if (prior == "spb") {
-        if (print.iter) {cat("Sample Delta\n")}
-        alpha <- c/2
-        deltas.new <- unlist(lapply(1:length(deltas), function(ii) {
-          xi <- (2*gamma(3/(2*alpha))*c(S)[ii]^2/gamma(1/(2*alpha)))^(alpha/(1 - alpha))
-          slice(x.tilde = deltas[ii], ll.fun = "g.delta",
-                              var.lim = c(0, pi),
-                              ll.args = list("c" = c, "xi" = xi))
-        }))
-        deltas <- deltas.new
+    sample.beta <- c(zgamma, c(Z))
 
-        # for (ii in 1:length(deltas)) {
-        #   alpha <- c/2
-        #   xi <- (2*gamma(3/(2*alpha))*c(S)[ii]^2/gamma(1/(2*alpha)))^(alpha/(1 - alpha))
-        #   deltas[ii] <- slice(x.tilde = deltas[ii], ll.fun = "g.delta",
-        #                       var.lim = c(0, pi),
-        #                       ll.args = list("c" = c, "xi" = xi))
-        # }
+    if (is.null(fix.beta)) {
+
+      if (prior == "spn") {
+        samp.vars <- c("z", "s")
+      } else {
+        samp.vars <- c("z")
+      }
+      for (sv in samp.vars) {
+        if (print.iter & sv == "z") {cat("Sample Z\n")}
+        if (print.iter & sv == "s") {cat("Sample S\n")}
+
+
+        if (sv == "z") {
+
+          X.arr.s <- array(c(crossprod(apply(X.arr, 1, "c"),
+                                       diag(c(S),
+                                            nrow = prod(p),
+                                            ncol = prod(p)))),
+                           dim = c(n, p))
+          for (l in 1:length(p)) {
+            X.arr.s <- amprod.mc(X.arr.s, Omega.half[[l]], l + 1)
+          }
+          W <- t(apply(X.arr.s, 1, "c"))
+          UW <- cbind(U, W)
+
+        } else {
+
+          X.arr.s <- X.arr
+          X.arr.s <- array(c(crossprod(apply(X.arr, 1, "c"),
+                                       diag(c(atrans.mc(Z, Omega.half)),
+                                            nrow = prod(p), ncol = prod(p)))), dim = c(n, p))
+          for (l in 1:length(p)) {
+            X.arr.s <- amprod.mc(X.arr.s, Psi.half[[l]], l + 1)
+          }
+          W <- t(apply(X.arr.s, 1, "c"))
+          UW <- cbind(U, W)
+
+        }
+
+
+
+        if (reg == "logit") {
+          if (prior != "spn" | (prior == "spn" & sv == "z")) {
+            if (print.iter) {cat("Sample logit auxiliary variables\n")}
+            ome <- BayesLogit::rpg(n, offset*2, crossprod(t(UW), c(zgamma + pr.gamma.mean, c(Z))))
+            diag(omeD) <- ome
+          }
+        }
+        if (length(joint.beta) == 1) {
+          if (reg == "logit") {
+
+            UWtUW <- Matrix::crossprod(UW, Matrix::crossprod(omeD, UW))
+            UWty <- crossprod(UW, y - offset - ome*rs.u*pr.gamma.mean)
+
+          } else if ((i == 1 &
+                      reg == "linear" &
+                      max(null.Omega.half) == 0 & prior == "sno" & !null.Sig.sq) |
+                     !(reg == "linear") |
+                     !(max(null.Omega.half) == 0) |
+                     !(prior == "sno") |
+                     null.Sig.sq) {
+            UW.Sig.i.rt <- array(c(amprod.mc(array(c(UW),
+                                                   dim = c(dim(Y),
+                                                           dim(UW)[-1])), Sig.i.rt, 2)),
+                                 dim = dim(UW))
+            y.Sig.i.rt <- as.vector(array(y - offset - rs.u*pr.gamma.mean, dim = dim(Y))%*%Sig.i.rt)
+            UWtUW <- crossprod(UW.Sig.i.rt)
+            UWty <- Matrix::crossprod(UW.Sig.i.rt, y.Sig.i.rt)
+          }
+
+
+          if (reg == "linear") {
+
+
+            if (min(U) == 0 & max(U) == 0) {
+              sample.beta[(q + 1):nrow(UWty)] <- samp.beta(XtX = UWtUW[(q + 1):nrow(UWtUW), (q + 1):ncol(UWtUW)],
+                                                           Xty = UWty[(q + 1):nrow(UWty)],
+                                                           Omega.inv = diag(penC[(q + 1):nrow(UWty)],
+                                                                            nrow = length(penC[(q + 1):nrow(UWty)]),
+                                                                            ncol = length(penC[(q + 1):nrow(UWty)])),
+                                                           sig.sq = 1)
+            } else {
+              sample.beta <- samp.beta(XtX = UWtUW, Xty = UWty,
+                                       Omega.inv = diag(penC, nrow = length(penC),
+                                                        ncol = length(penC)),
+                                       sig.sq = 1)
+            }
+
+
+          } else {
+            if (min(U) == 0 & max(U) == 0) {
+
+              sample.beta[(q + 1):nrow(UWty)] <- samp.beta(XtX = UWtUW[(q + 1):nrow(UWtUW), (q + 1):ncol(UWtUW)],
+                                                           Xty = UWty[(q + 1):nrow(UWty)],
+                                                           Omega.inv = diag(penC[(q + 1):nrow(UWty)],
+                                                                            nrow = length(penC[(q + 1):nrow(UWty)]),
+                                                                            ncol = length(penC[(q + 1):nrow(UWty)])), sig.sq = 1)
+            } else {
+              sample.beta <- samp.beta(XtX = UWtUW, Xty = UWty,
+                                       Omega.inv = diag(penC, nrow = length(penC), ncol = length(penC)), sig.sq = 1)
+            }
+
+
+          }
+
+        } else {
+
+          for (block in joint.beta) {
+
+            not.block <- (1:ncol(UW.Sig.i.rt))[!1:ncol(UW.Sig.i.rt) %in% block]
+            if (reg == "logit") {
+
+              UWtUW <- Matrix::crossprod(UW[, block], Matrix::crossprod(omeD, UW[, block]))
+
+              UWtNUWZ <- Matrix::crossprod(Matrix::t(Matrix::crossprod(UW[, block],
+                                                                       Matrix::crossprod(omeD, UW[, not.block]))), sample.beta[ not.block])
+
+            } else if ((i == 1 & reg == "linear" & max(null.Omega.half) == 0 & prior == "sno" & length(joint.beta) == 1 & !null.Sig.sq) |
+                       !(reg == "linear") | !(max(null.Omega.half) == 0) | !(prior == "sno") | length(joint.beta) > 1 | null.Sig.sq) {
+              UWtUW <- crossprod(UW.Sig.i.rt[, block])
+              UWtNUWZ <- crossprod(UW.Sig.i.rt[, block], crossprod(t(UW.Sig.i.rt[, not.block]), sample.beta[not.block]))
+
+            }
+
+
+            if (reg == "linear") {
+              UWty <- crossprod(UW.Sig.i.rt[, block], y.Sig.i.rt)
+            } else {
+              UWty <- crossprod(UW[, block], y - offset - ome*rs.u*pr.gamma.mean)
+            }
+
+
+            if (reg == "linear") {
+              sample.beta[block] <- samp.beta(XtX = UWtUW, Xty = UWty - UWtNUWZ,
+                                              Omega.inv = diag(penC[block], nrow = length(penC[block]), ncol = length(penC[block])), sig.sq = 1)
+            } else {
+              sample.beta[block] <- samp.beta(XtX = UWtUW, Xty = UWty - UWtNUWZ,
+                                              Omega.inv = diag(penC[block], nrow = length(penC[block]), ncol = length(penC[block])), sig.sq = 1)
+            }
+          }
+
+        }
+
+
+
+        zgamma <- sample.beta[1:q]
+        gamma <- zgamma + pr.gamma.mean
+        if (prior != "spn" | (prior == "spn" & sv == "z")) {
+          # if (prior != "spn") {
+          Z <- array(sample.beta[(q + 1):length(sample.beta)], dim = p)
+          # } else {
+          #   Z <- array(1, prod(p))
+          # }
+        } else {
+          S <- atrans.mc(array(sample.beta[(q + 1):length(sample.beta)], p),
+                         Psi.half)
+          # S <- array(1, prod(p))
+        }
+
+        S <- array(S, p)
+        Z <- array(Z, p)
+        B <- S*atrans.mc(Z, Omega.half)
+
       }
     }
+
+    if (prior == "spb") {
+      if (print.iter) {cat("Sample Delta\n")}
+      alpha <- c/2
+      deltas.new <- unlist(lapply(1:length(deltas), function(ii) {
+        xi <- (2*gamma(3/(2*alpha))*c(S)[ii]^2/gamma(1/(2*alpha)))^(alpha/(1 - alpha))
+        slice(x.tilde = deltas[ii], ll.fun = "g.delta",
+              var.lim = c(0, pi),
+              ll.args = list("c" = c, "xi" = xi))
+      }))
+      deltas <- deltas.new
+
+      # for (ii in 1:length(deltas)) {
+      #   alpha <- c/2
+      #   xi <- (2*gamma(3/(2*alpha))*c(S)[ii]^2/gamma(1/(2*alpha)))^(alpha/(1 - alpha))
+      #   deltas[ii] <- slice(x.tilde = deltas[ii], ll.fun = "g.delta",
+      #                       var.lim = c(0, pi),
+      #                       ll.args = list("c" = c, "xi" = xi))
+      # }
+    }
+
 
     if (prior == "sng" | (prior == "spn" & !is.null(fix.beta)) | prior == "spb") {
 
@@ -1157,7 +1370,6 @@ sampler <- function(
                                deltas = deltas, prior = prior)
           }
           c <- c.samp$c
-          # print(c)
         }
       } else if (prior  == "spn") {
         S <- array(r, dim = p)
@@ -1169,174 +1381,6 @@ sampler <- function(
         B <- S*atrans.mc(Z, Omega.half)
       }
 
-    }
-
-    sample.beta <- c(zgamma, c(Z))
-
-    if (is.null(fix.beta)) {
-
-      if (prior == "spn") {
-        samp.vars <- c("z", "s")
-      } else {
-        samp.vars <- c("z")
-      }
-      for (sv in samp.vars) {
-        if (print.iter & sv == "z") {cat("Sample Z\n")}
-        if (print.iter & sv == "s") {cat("Sample S\n")}
-
-
-        if (sv == "z") {
-
-          X.arr.s <- array(c(crossprod(apply(X.arr, 1, "c"),
-                                       diag(c(S),
-                                            nrow = prod(p),
-                                            ncol = prod(p)))),
-                           dim = c(n, p))
-          for (l in 1:length(p)) {
-            X.arr.s <- amprod.mc(X.arr.s, Omega.half[[l]], l + 1)
-          }
-          W <- t(apply(X.arr.s, 1, "c"))
-          UW <- cbind(U, W)
-
-        } else {
-
-          X.arr.s <- X.arr
-          X.arr.s <- array(c(crossprod(apply(X.arr, 1, "c"),
-                                       diag(c(atrans.mc(Z, Omega.half)),
-                                            nrow = prod(p), ncol = prod(p)))), dim = c(n, p))
-          for (l in 1:length(p)) {
-            X.arr.s <- amprod.mc(X.arr.s, Psi.half[[l]], l + 1)
-          }
-          W <- t(apply(X.arr.s, 1, "c"))
-          UW <- cbind(U, W)
-
-        }
-
-
-
-        if (reg == "logit") {
-          if (prior != "spn" | (prior == "spn" & sv == "z")) {
-            if (print.iter) {cat("Sample logit auxiliary variables\n")}
-            ome <- BayesLogit::rpg(n, offset*2, crossprod(t(UW), c(zgamma + pr.gamma.mean, c(Z))))
-            diag(omeD) <- ome
-          }
-        }
-        if (length(joint.beta) == 1) {
-          if (reg == "logit") {
-
-            UWtUW <- Matrix::crossprod(UW, Matrix::crossprod(omeD, UW))
-            UWty <- crossprod(UW, y - offset - ome*rs.u*pr.gamma.mean)
-
-          } else if ((i == 1 &
-                      reg == "linear" &
-                      max(null.Omega.half) == 0 & prior == "sno" & !null.Sig.sq) |
-                     !(reg == "linear") |
-                     !(max(null.Omega.half) == 0) |
-                     !(prior == "sno") |
-                     null.Sig.sq) {
-            UW.Sig.i.rt <- array(c(amprod.mc(array(c(UW),
-                                                   dim = c(dim(Y),
-                                                           dim(UW)[-1])), Sig.i.rt, 2)),
-                                 dim = dim(UW))
-            y.Sig.i.rt <- as.vector(array(y - offset - rs.u*pr.gamma.mean, dim = dim(Y))%*%Sig.i.rt)
-            UWtUW <- crossprod(UW.Sig.i.rt)
-            UWty <- Matrix::crossprod(UW.Sig.i.rt, y.Sig.i.rt)
-          }
-
-
-          if (reg == "linear") {
-
-
-            if (min(U) == 0 & max(U) == 0) {
-              sample.beta[(q + 1):nrow(UWty)] <- samp.beta(XtX = UWtUW[(q + 1):nrow(UWtUW), (q + 1):ncol(UWtUW)],
-                                                           Xty = UWty[(q + 1):nrow(UWty)],
-                                                           Omega.inv = diag(penC[(q + 1):nrow(UWty)],
-                                                                            nrow = length(penC[(q + 1):nrow(UWty)]),
-                                                                            ncol = length(penC[(q + 1):nrow(UWty)])),
-                                                           sig.sq = 1)
-            } else {
-              sample.beta <- samp.beta(XtX = UWtUW, Xty = UWty,
-                                       Omega.inv = diag(penC, nrow = length(penC),
-                                                        ncol = length(penC)),
-                                       sig.sq = 1)
-            }
-
-
-          } else {
-            if (min(U) == 0 & max(U) == 0) {
-
-              sample.beta[(q + 1):nrow(UWty)] <- samp.beta(XtX = UWtUW[(q + 1):nrow(UWtUW), (q + 1):ncol(UWtUW)],
-                                                           Xty = UWty[(q + 1):nrow(UWty)],
-                                                           Omega.inv = diag(penC[(q + 1):nrow(UWty)],
-                                                                            nrow = length(penC[(q + 1):nrow(UWty)]),
-                                                                            ncol = length(penC[(q + 1):nrow(UWty)])), sig.sq = 1)
-            } else {
-              sample.beta <- samp.beta(XtX = UWtUW, Xty = UWty,
-                                       Omega.inv = diag(penC, nrow = length(penC), ncol = length(penC)), sig.sq = 1)
-            }
-
-
-          }
-
-        } else {
-
-          for (block in joint.beta) {
-
-            not.block <- (1:ncol(UW.Sig.i.rt))[!1:ncol(UW.Sig.i.rt) %in% block]
-            if (reg == "logit") {
-
-              UWtUW <- Matrix::crossprod(UW[, block], Matrix::crossprod(omeD, UW[, block]))
-
-              UWtNUWZ <- Matrix::crossprod(Matrix::t(Matrix::crossprod(UW[, block],
-                                                                       Matrix::crossprod(omeD, UW[, not.block]))), sample.beta[ not.block])
-
-            } else if ((i == 1 & reg == "linear" & max(null.Omega.half) == 0 & prior == "sno" & length(joint.beta) == 1 & !null.Sig.sq) |
-                       !(reg == "linear") | !(max(null.Omega.half) == 0) | !(prior == "sno") | length(joint.beta) > 1 | null.Sig.sq) {
-              UWtUW <- crossprod(UW.Sig.i.rt[, block])
-              UWtNUWZ <- crossprod(UW.Sig.i.rt[, block], crossprod(t(UW.Sig.i.rt[, not.block]), sample.beta[not.block]))
-
-            }
-
-
-            if (reg == "linear") {
-              UWty <- crossprod(UW.Sig.i.rt[, block], y.Sig.i.rt)
-            } else {
-              UWty <- crossprod(UW[, block], y - offset - ome*rs.u*pr.gamma.mean)
-            }
-
-
-            if (reg == "linear") {
-              sample.beta[block] <- samp.beta(XtX = UWtUW, Xty = UWty - UWtNUWZ,
-                                              Omega.inv = diag(penC[block], nrow = length(penC[block]), ncol = length(penC[block])), sig.sq = 1)
-            } else {
-              sample.beta[block] <- samp.beta(XtX = UWtUW, Xty = UWty - UWtNUWZ,
-                                              Omega.inv = diag(penC[block], nrow = length(penC[block]), ncol = length(penC[block])), sig.sq = 1)
-            }
-          }
-
-        }
-
-
-
-        zgamma <- sample.beta[1:q]
-        gamma <- zgamma + pr.gamma.mean
-        if (prior != "spn" | (prior == "spn" & sv == "z")) {
-          # if (prior != "spn") {
-          Z <- array(sample.beta[(q + 1):length(sample.beta)], dim = p)
-          # } else {
-          #   Z <- array(1, prod(p))
-          # }
-        } else {
-          S <- atrans.mc(array(sample.beta[(q + 1):length(sample.beta)], p),
-                         Psi.half)
-          # S <- array(1, prod(p))
-        }
-
-        S <- array(S, p)
-        Z <- array(Z, p)
-        B <- S*atrans.mc(Z, Omega.half)
-
-      }
     }
 
     for (k in which(null.Omega.half)) {
