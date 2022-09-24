@@ -1428,7 +1428,7 @@ sampler <- function(
           if (print.iter) {cat("Compute Omega Inv\n")}
           Omega.inv[[k]] <- diag(1, nrow = p[k], ncol = p[k]) - rho*Neighbs
           if (print.iter) {cat("Compute Omega Half\n")}
-          Omega.half[[k]] <-  Matrix::crossprod(Matrix::tcrossprod(Matrix(diag(sqrt(sqrt(ifelse(1 - rho*Neighbs.ei$values > 0, 1/(1 - rho*Neighbs.ei$values), 0))),
+          Omega.half[[k]] <-  Matrix::crossprod(Matrix::tcrossprod(Matrix(diag(sqrt((ifelse(1 - rho*Neighbs.ei$values > 0, 1/(1 - rho*Neighbs.ei$values), 0))),
                                                                                nrow = nrow(Neighbs), ncol = ncol(Neighbs))), Neighbs.ei$vectors))
 
           # I don't save this
@@ -1436,7 +1436,7 @@ sampler <- function(
           # Omega[[k]] <- Matrix::crossprod(Omega.half[[k]])
 
           if (print.iter) {cat("Compute Omega Half Inv\n")}
-          Omega.half.inv[[k]] <- Matrix::crossprod(Matrix::tcrossprod(Matrix(diag(sqrt(sqrt(ifelse(1 - rho*Neighbs.ei$values > 0, 1 - rho*Neighbs.ei$values, 0))),
+          Omega.half.inv[[k]] <- Matrix::crossprod(Matrix::tcrossprod(Matrix(diag(sqrt((ifelse(1 - rho*Neighbs.ei$values > 0, 1 - rho*Neighbs.ei$values, 0))),
                                                                                                           nrow = nrow(Neighbs), ncol = ncol(Neighbs))), Neighbs.ei$vectors))
         }
 
@@ -1508,10 +1508,10 @@ sampler <- function(
                                         ))
             Psi.inv[[k]] <- diag(1, nrow = p[k], ncol = p[k]) - rho.psi*Neighbs
 
-            Psi.half[[k]] <-  Matrix::crossprod(Matrix::tcrossprod(Matrix(diag(sqrt(sqrt(ifelse(1 - rho.psi*Neighbs.ei$values > 0, 1/(1 - rho.psi*Neighbs.ei$values), 0))),
+            Psi.half[[k]] <-  Matrix::crossprod(Matrix::tcrossprod(Matrix(diag(sqrt((ifelse(1 - rho.psi*Neighbs.ei$values > 0, 1/(1 - rho.psi*Neighbs.ei$values), 0))),
                                                                                                          nrow = nrow(Neighbs), ncol = ncol(Neighbs))), Neighbs.ei$vectors))
 
-            Psi.half.inv[[k]] <- Matrix::crossprod(Matrix::tcrossprod(Matrix(diag(sqrt(sqrt(ifelse(1 - rho.psi*Neighbs.ei$values > 0, 1 - rho.psi*Neighbs.ei$values, 0))),
+            Psi.half.inv[[k]] <- Matrix::crossprod(Matrix::tcrossprod(Matrix(diag(sqrt((ifelse(1 - rho.psi*Neighbs.ei$values > 0, 1 - rho.psi*Neighbs.ei$values, 0))),
                                                                                                             nrow = nrow(Neighbs), ncol = ncol(Neighbs))), Neighbs.ei$vectors))
           }
         } else {
