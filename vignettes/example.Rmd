@@ -1,0 +1,131 @@
+---
+title: Use of sampler function
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Use of sampler function}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Install R Package from GitHub
+```{r, eval = FALSE}
+library(devtools)
+install_github("maryclare/sspcomp")
+library(sspcomp)
+library(Matrix)
+```
+
+# Simulate Data for Example
+
+```{r, eval = FALSE}
+set.seed(39210)
+# We're going to a simulate a response that corresponds to a 10x2 matrix
+# with dependence along the second dimension
+n <- 10
+m <- 2
+# We'll have a 5 x 3 array of covariates, with corresponding coefficients having
+# AR-1 dependence along the first dimension and unstructured dependence along 
+# the second dimension
+p1 <- 5
+p2 <- 3
+# Simulate covariates
+X <- array(rnorm(n*m*p1*p2), c(n*m, p1, p2))
+# Simulate response dependence covariance matrix
+Sigma <- rWishart(n = 1, df = m, Sigma = diag(m))[, , 1]
+# Construct coviarance matrix of regression coefficents along first dimension
+Omega1 <- make.ar.mat(p = p1, rho = 0.5, inv = FALSE)
+# Simulate coviarance matrix of regression coefficents along second dimension
+Omega2 <- rWishart(n = 1, df = p2, Sigma = diag(p2))[, , 1]
+# Simulate regression coefficients
+beta <- c(t(chol(Omega1))%*%matrix(rnorm(p1*p2), nrow = p1, ncol = p2)%*%chol(Omega2))
+# Simulate response
+Y <- matrix(t(apply(X, 1, "c"))%*%beta, nrow = n, ncol = m) +
+  matrix(rnorm(n*m), nrow = n, ncol = m)%*%chol(Sigma)
+```
+
+# Normal Prior, Unknown Variances
+
+## AR-1 Along First Dimension of Coefficients
+```{r, eval = FALSE}
+samples <- sampler(X = X, Y = Y, num.samp = 100, prior = "sno")
+```
+
+## CAR Along First Dimension of Coefficients
+```{r, eval = FALSE}
+Neighbs <- matrix(0, nrow = p1, ncol = p1)
+Neighbs[1, 2] <- Neighbs[2, 1] <- 
+  Neighbs[2, 3] <- Neighbs[3, 2] <- 
+  Neighbs[3, 4] <- Neighbs[4, 3] <-
+  Neighbs[4, 5] <- Neighbs[5, 4] <- 
+  Neighbs[1, 5] <- Neighbs[5, 1] <- 1
+
+samples <- sampler(X = X, Y = Y, num.samp = 100, prior = "sno",
+                        Neighbs = Neighbs)
+mean(unlist(lapply(samples$rhos, function(rho) {
+  mean(diag(cov2cor(ei.inv(diag(1, p1, p1) - rho*Neighbs))[-1, -p1]))
+})))
+```
+
+## Unstructured Along First Dimension of Coefficients
+```{r, eval = FALSE}
+samples <- sampler(X = array(c(X), c(dim(X)[1], 1, dim(X)[-1])), Y = Y, 
+                   num.samp = 100, prior = "sno", 
+                   Omega.half = list(matrix(1, 1, 1), NULL, NULL))
+matrix(rowMeans(apply(samples$Omegas[[2]], 1, cov2cor)), p1, p1)
+```
+
+## Uncorrelated Along Second Dimension of Coefficients
+```{r, eval = FALSE}
+samples <- sampler(X = array(c(X), c(dim(X)[1:2], 1, dim(X)[3])), Y = Y, 
+                   num.samp = 100, prior = "sno", 
+                   Omega.half = list(NULL, NULL, diag(1, p2, p2)))
+```
+
+# Normal Prior, Known Variance(s)
+
+
+## Known Noise Variance
+```{r, eval = FALSE}
+samples <- sampler(X = X, Y = Y, num.samp = 100, prior = "sno", Sig.sq = Sigma)
+```
+
+## Known Noise Variance and Penalized Coefficient Variances
+```{r, eval = FALSE}
+samples <- sampler(X = X, Y = Y, num.samp = 100, prior = "sno", Sig.sq = Sigma,
+                   Omega.half = list(sym.sq.root(Omega1), sym.sq.root(Omega2)))
+```
+
+# Other Priors
+
+## SPN 
+
+```{r, eval = FALSE}
+samples <- sampler(X = X, Y = Y, num.samp = 100, prior = "spn")
+```
+
+
+## SNG 
+
+```{r, eval = FALSE}
+samples <- sampler(X = X, Y = Y, num.samp = 100, prior = "sng", c = 0.5)
+```
+
+## SPB 
+
+```{r, eval = FALSE}
+# As seen below, default settings for the posterior mode optimization for
+# inverse scales lead to slow performance
+samples <- sampler(X = X, Y = Y, num.samp = 5, prior = "spb", c = 0.5)
+# Can be made faster by reducing the max. number of iterations of coordinate
+# descent for inverse scales
+samples <- sampler(X = X, Y = Y, num.samp = 100, prior = "spb", c = 0.5,
+                   max.iter.r = 100)
+# Can be made even faster by making the tolerance for coordinate descent
+# for inverse scales bigger
+samples <- sampler(X = X, Y = Y, num.samp = 100, prior = "spb", c = 0.5,
+                   max.iter.r = 100, eps.r = 10^(-2))
+```
