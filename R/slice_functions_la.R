@@ -643,19 +643,19 @@ sample.r.eta <- function(r, Omega.inv, beta,
 #' @param burn.in Number of samples from the posterior to be discarded as burn-in and not returned. Defaults to 0.
 #' @param thin Number of samples from the posterior to thin by before returning samples. Defaults to 1.
 #' @param print.iter TRUE/FALSE indicating whether or not a running count of the number of samples drawn from the posterior should be printed. Defaults to TRUE.
-#' @param eps.r Scalar global tolerance for coordinate descent for inverse scale posterior mode, defaults to 10^(-12)
-#' @param max.iter.r Integer number of maximum outer iterations for coordinate descent for inverse scale posterior mode. Defaults to 1,000.
-#' @param max.inner.r Integer number of maximum inner iterations for coordinate descent for inverse scale posterior mode. Defaults to 1,000.
-#' @param use.previous.r TRUE/FALSE indicating whether or not successive iterations should use the previous posterior mode of the inverse scales as a starting value for the posterior mode of the inverse scales on the following iteration. Defaults to TRUE.
-#' @param diag.app.r TRUE/FALSE indicating whether or not a diagonal approximation to the Hessian of the posterior distribution of the inverse scales should be used. Defaults to FALSE.
-#' @param r.tilde If non-null, a prod(dim(X)[-1]) vector corresponding to starting values for the posterior mode of the inverse scales. Defaults to NULL, in which case a vector of 1's or the previous posterior mode is used, depending on what is provided for "use.previous.r".
+#' @param eps.r Scalar global tolerance for coordinate descent for scale posterior mode, defaults to 10^(-12)
+#' @param max.iter.r Integer number of maximum outer iterations for coordinate descent for scale posterior mode. Defaults to 1,000.
+#' @param max.inner.r Integer number of maximum inner iterations for coordinate descent for scale posterior mode. Defaults to 1,000.
+#' @param use.previous.r TRUE/FALSE indicating whether or not successive iterations should use the previous posterior mode of the scales as a starting value for the posterior mode of the scales on the following iteration. Defaults to TRUE.
+#' @param diag.app.r TRUE/FALSE indicating whether or not a diagonal approximation to the Hessian of the posterior distribution of the scales should be used. Defaults to FALSE.
+#' @param r.tilde If non-null, a prod(dim(X)[-1]) vector corresponding to starting values for the posterior mode of the scales. Defaults to NULL, in which case a vector of 1's or the previous posterior mode is used, depending on what is provided for "use.previous.r".
 #' @param sep.eta List providing indices of scales to be sampled together in a single ESS step, defaults to a list with one element for scales index.
-#' @param nu.r If non-null, a scalar corresponding to the degrees of freedom of the t-distribution used for to generate proposals for inverse scales. If NULL, a normal distribution is used for proposals. Defaults to NULL.
-#' @param r.start If non-null, a prod(dim(X)[-1]) vector corresponding to starting values of the inverse scales. Defaults to NULL, in which case a vector of 1's is used.
-#' @param V.r.half If non-null, a prod(dim(X)[-1]) x prod(dim(X)[-1]) matrix corresponding to the linear transformation applied to the inverse scales after subtracting off the posterior mode before performing elliptical slice sampling. If NULL, a linear transformation based on the Hessian of the posterior distribution of the inverse scales is used.
+#' @param nu.r If non-null, a scalar corresponding to the degrees of freedom of the t-distribution used for to generate proposals for scales. If NULL, a normal distribution is used for proposals. Defaults to NULL.
+#' @param r.start If non-null, a prod(dim(X)[-1]) vector corresponding to starting values of the scales. Defaults to NULL, in which case a vector of 1's is used.
+#' @param V.r.half If non-null, a prod(dim(X)[-1]) x prod(dim(X)[-1]) matrix corresponding to the linear transformation applied to the scales after subtracting off the posterior mode before performing elliptical slice sampling. If NULL, a linear transformation based on the Hessian of the posterior distribution of the scales is used.
 #' @param V.r.half.inv If non-null, a prod(dim(X)[-1]) x prod(dim(X)[-1]) matrix corresponding to the inverse of V.r.half. If NULL, defined to be the inverse of V.r.half. Defaults to NULL.
-#' @param mu.prop If non-null, a prod(dim(X)[-1]) vector corresponding to the proposal means for the linearly transformed inverse scales. If NULL, a p vector of zeros is used. Defaults to NULL.
-#' @param V.prop.half If non-null, a prod(dim(X)[-1]) vector (or prod(dim(X)[-1]) x prod(dim(X)[-1]) matrix) corresponding to the proposal variances (or covariance matrix) used for the inverse scales. If NULL, a p vector of 1's is used. Defaults to NULL.
+#' @param mu.prop If non-null, a prod(dim(X)[-1]) vector corresponding to the proposal means for the linearly transformed scales. If NULL, a p vector of zeros is used. Defaults to NULL.
+#' @param V.prop.half If non-null, a prod(dim(X)[-1]) vector (or prod(dim(X)[-1]) x prod(dim(X)[-1]) matrix) corresponding to the proposal variances (or covariance matrix) used for the scales. If NULL, a p vector of 1's is used. Defaults to NULL.
 #' @param z.start If non-null, a p vector corresponding to starting values of the penalized coefficients. Defaults to NULL, in which case a vector of 0's is used.
 #' @param gamma.start If non-null, a dim(U)[2] vector corresponding to starting values of the unpenalized coefficients. Defaults to NULL, in which case a vector of 0's is used.
 #' @param joint.beta List providing indices of the all coefficients to be sampled together in a single Gibbs step, defaults to a list with one element containing all indices.
