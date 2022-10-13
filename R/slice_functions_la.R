@@ -1047,16 +1047,7 @@ sampler <- function(
 
         }
 
-
-
-        if (reg == "logit") {
-          if (prior != "spn" | (prior == "spn" & sv == "z")) {
-            if (print.iter) {cat("Sample logit auxiliary variables\n")}
-            ome <- BayesLogit::rpg(n, offset*2, crossprod(t(UW), c(zgamma + pr.gamma.mean, c(Z))))
-            diag(omeD) <- ome
-          }
-        }
-        if (length(joint.beta) == 1) {
+      if (length(joint.beta) == 1) {
           if (reg == "logit") {
 
             UWtUW <- Matrix::crossprod(UW, Matrix::crossprod(omeD, UW))
@@ -1170,6 +1161,14 @@ sampler <- function(
         S <- array(S, p)
         Z <- array(Z, p)
         B <- S*atrans.mc(Z, Omega.half)
+
+        if (reg == "logit") {
+          if (prior != "spn" | (prior == "spn" & sv == "z")) {
+            if (print.iter) {cat("Sample logit auxiliary variables\n")}
+            ome <- BayesLogit::rpg(n, offset*2, crossprod(t(UW), c(zgamma + pr.gamma.mean, c(Z))))
+            diag(omeD) <- ome
+          }
+        }
 
       }
     }
