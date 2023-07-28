@@ -2,7 +2,7 @@
 #'
 #' @docType package
 #' @name sspcomp
-#' @useDynLib sspcomp
+#' @useDynLib sspcomp, .registration=TRUE
 
 #' @export
 samp.Omega.inv <- function(Beta, pr.V.inv = diag(1, nrow = ncol(Beta), ncol = ncol(Beta)),
