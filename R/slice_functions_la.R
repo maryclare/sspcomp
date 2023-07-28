@@ -1,3 +1,9 @@
+#' sspcomp
+#'
+#' @docType package
+#' @name sspcomp
+#' @useDynLib sspcomp
+
 #' @export
 samp.Omega.inv <- function(Beta, pr.V.inv = diag(1, nrow = ncol(Beta), ncol = ncol(Beta)),
                            pr.df = ncol(Beta) + 2, str = "uns") {

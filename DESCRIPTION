@@ -8,7 +8,7 @@ Description: Implements samplers described in Griffin and Hoff "Structured Shrin
 License: GPL (>=2)
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.2.1
+RoxygenNote: 7.2.3
 Imports: Rcpp (>= 0.12.12), Matrix, BayesLogit, polynom
 Suggests: knitr, rmarkdown
 VignetteBuilder: knitr
